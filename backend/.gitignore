@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Env and secrets (commit .env.example only)
+.env
+.env.local
+.env.*.local
+
+# Logs and debug
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store

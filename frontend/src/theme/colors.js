@@ -1,0 +1,14 @@
+export const colors = {
+  background: '#FFF8F5',
+  surface: '#FFFFFF',
+  cream: '#FFF8F5',
+  blush: '#F5D0D0',
+  blushDark: '#E8B4B8',
+  sky: '#B8D4E3',
+  skyDark: '#9BC4E2',
+  text: '#5C4A4A',
+  textMuted: '#8B7B7B',
+  white: '#FFFFFF',
+  shadow: 'rgba(92, 74, 74, 0.08)',
+  shadowStrong: 'rgba(92, 74, 74, 0.12)',
+};
