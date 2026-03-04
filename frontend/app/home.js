@@ -1,63 +1,119 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
+import { Card } from '../src/components/Card';
 import { colors } from '../src/theme/colors';
 
 export default function HomeScreen() {
-  const user = useAuthStore((s) => s.user);
+  const router = useRouter();
+  const { user, partnerId } = useAuthStore();
+
+  // Guard: unpaired users cannot see the dashboard
+  useEffect(() => {
+    if (user && partnerId == null) router.replace('/pair');
+  }, [user, partnerId, router]);
+
+  if (!user || partnerId == null) return null;
+
+  // Show partnerId until we have partner email from API (e.g. GET /partner)
+  const partnerLabel = typeof partnerId === 'string' ? partnerId : (partnerId?.toString?.() ?? 'Your partner');
 
   return (
-    <View style={styles.container}>
-      <View style={styles.iconWrap}>
-        <Ionicons name="heart" size={48} color={colors.blushDark} />
+    <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.header}>
+        <View style={styles.iconWrap}>
+          <Ionicons name="heart" size={40} color={colors.blushDark} />
+        </View>
+        <Text style={styles.connectedTitle}>Connected with your partner</Text>
+        <Text style={styles.partnerId}>Partner: {partnerLabel}</Text>
       </View>
-      <Text style={styles.title}>You’re all set</Text>
-      <Text style={styles.subtitle}>You’re paired and ready. More features coming soon.</Text>
-      {user?.email ? (
-        <Text style={styles.email}>{user.email}</Text>
-      ) : null}
-    </View>
+
+      <View style={styles.cards}>
+        <Card style={styles.placeholderCard}>
+          <View style={styles.placeholderIconWrap}>
+            <Ionicons name="partly-sunny-outline" size={32} color={colors.skyDark} />
+          </View>
+          <Text style={styles.placeholderTitle}>Partner Stats</Text>
+          <Text style={styles.placeholderSubtitle}>Weather, battery & location — coming soon</Text>
+        </Card>
+
+        <Card style={styles.placeholderCard}>
+          <View style={styles.placeholderIconWrap}>
+            <Ionicons name="image-outline" size={32} color={colors.blushDark} />
+          </View>
+          <Text style={styles.placeholderTitle}>Recent Photo</Text>
+          <Text style={styles.placeholderSubtitle}>Latest from your partner — coming soon</Text>
+        </Card>
+
+        <Card style={styles.placeholderCard}>
+          <View style={styles.placeholderIconWrap}>
+            <Ionicons name="calendar-outline" size={32} color={colors.skyDark} />
+          </View>
+          <Text style={styles.placeholderTitle}>Reunion Countdown</Text>
+          <Text style={styles.placeholderSubtitle}>Next reunion date — coming soon</Text>
+        </Card>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+  container: { flex: 1, backgroundColor: colors.background },
+  scroll: { paddingHorizontal: 24, paddingTop: 56, paddingBottom: 40 },
+  header: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
+    marginBottom: 32,
   },
   iconWrap: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 1,
     shadowRadius: 16,
     elevation: 6,
   },
-  title: {
-    fontSize: 24,
+  connectedTitle: {
+    fontSize: 22,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 8,
     textAlign: 'center',
+    marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  email: {
-    marginTop: 16,
+  partnerId: {
     fontSize: 14,
     color: colors.textMuted,
+  },
+  cards: { gap: 20 },
+  placeholderCard: {
+    minHeight: 120,
+    justifyContent: 'center',
+  },
+  placeholderIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  placeholderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  placeholderSubtitle: {
+    fontSize: 14,
+    color: colors.textMuted,
+    lineHeight: 20,
   },
 });

@@ -1,9 +1,18 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { api, setApiToken, setApiLogout } from '../lib/api';
+import { api, setApiToken, setApiLogout, getMe } from '../lib/api';
 
 const TOKEN_KEY = 'ldr_token';
 const USER_KEY = 'ldr_user';
+
+function normalizeUser(dataUser) {
+  if (!dataUser) return null;
+  return {
+    id: dataUser.id,
+    email: dataUser.email ?? undefined,
+    partnerId: dataUser.partnerId ?? null,
+  };
+}
 
 export const useAuthStore = create((set, get) => {
   const logout = () => {
@@ -21,7 +30,27 @@ export const useAuthStore = create((set, get) => {
     partnerId: null,
     hydrated: false,
 
-    setPartnerId: (partnerId) => set({ partnerId }),
+    setPartnerId: (partnerId) => set((state) => {
+      const user = state.user ? { ...state.user, partnerId } : null;
+      if (user) SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+      return { partnerId, user };
+    }),
+
+    /** Fetch /api/auth/me and update user + partnerId (and persist). Call on app load and when polling after generating code. */
+    refreshUser: async () => {
+      const { token } = get();
+      if (!token) return null;
+      try {
+        const data = await getMe();
+        const user = normalizeUser(data.user);
+        if (!user) return null;
+        await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+        set({ user, partnerId: user.partnerId ?? null });
+        return user;
+      } catch {
+        return null;
+      }
+    },
 
     hydrate: async () => {
       try {
@@ -43,11 +72,7 @@ export const useAuthStore = create((set, get) => {
         provider,
         identityToken,
       });
-      const user = {
-        id: data.user.id,
-        email: data.user.email,
-        partnerId: data.user.partnerId ?? null,
-      };
+      const user = normalizeUser(data.user);
       await SecureStore.setItemAsync(TOKEN_KEY, data.token);
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
       setApiToken(data.token);

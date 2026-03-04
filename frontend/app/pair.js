@@ -1,53 +1,75 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
-import { api } from '../src/lib/api';
-import { Input } from '../src/components/Input';
+import { generatePairCode, joinPair } from '../src/lib/api';
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { colors } from '../src/theme/colors';
 
+const POLL_INTERVAL_MS = 3000;
+
 export default function PairScreen() {
   const router = useRouter();
-  const { user, setPartnerId, logout } = useAuthStore();
-  const [mode, setMode] = useState(null);
-  const [code, setCode] = useState('');
+  const { partnerId, setPartnerId, refreshUser, logout } = useAuthStore();
   const [generatedCode, setGeneratedCode] = useState(null);
+  const [joinCode, setJoinCode] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [generateLoading, setGenerateLoading] = useState(false);
+  const [joinLoading, setJoinLoading] = useState(false);
+  const pollRef = useRef(null);
+
+  // Guard: paired users must not see pairing screen
+  useEffect(() => {
+    if (partnerId != null) router.replace('/home');
+  }, [partnerId, router]);
+
+  // When code is shown, poll /auth/me every 3s until partnerId is set (then guard redirects to dashboard)
+  useEffect(() => {
+    if (!generatedCode) return;
+    const poll = async () => {
+      const user = await refreshUser();
+      if (user?.partnerId != null) {
+        if (pollRef.current) clearInterval(pollRef.current);
+      }
+    };
+    pollRef.current = setInterval(poll, POLL_INTERVAL_MS);
+    poll();
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [generatedCode, refreshUser]);
 
   const handleGenerate = async () => {
     setError('');
-    setLoading(true);
+    setGenerateLoading(true);
     try {
-      const { data } = await api.post('/couple/pair/generate');
+      const data = await generatePairCode();
       setGeneratedCode(data.code);
-      setMode('show');
     } catch (err) {
       setError(err.response?.data?.error || 'Could not generate code');
     } finally {
-      setLoading(false);
+      setGenerateLoading(false);
     }
   };
 
+  const joinCodeStr = joinCode.join('');
   const handleJoin = async () => {
     setError('');
-    const trimmed = code.replace(/\D/g, '');
-    if (trimmed.length !== 6) {
+    if (joinCodeStr.length !== 6) {
       setError('Enter a 6-digit code');
       return;
     }
-    setLoading(true);
+    setJoinLoading(true);
     try {
-      const { data } = await api.post('/couple/pair/join', { code: trimmed });
+      const data = await joinPair(joinCodeStr);
       setPartnerId(data.partnerId);
-      router.replace('/');
+      router.replace('/home');
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid or expired code');
     } finally {
-      setLoading(false);
+      setJoinLoading(false);
     }
   };
 
@@ -56,93 +78,76 @@ export default function PairScreen() {
     router.replace('/auth');
   };
 
-  if (mode === null) {
-    return (
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.iconWrap}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="people" size={44} color={colors.skyDark} />
-            </View>
-          </View>
-          <Text style={styles.title}>Link with your partner</Text>
-          <Text style={styles.subtitle}>
-            Generate a code for your partner to enter, or enter their code to pair.
-          </Text>
-
-          <Card style={styles.card}>
-            <TouchableOpacity style={styles.option} onPress={() => setMode('generate')}>
-              <Ionicons name="key" size={24} color={colors.blushDark} />
-              <Text style={styles.optionText}>I’ll generate a code</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.option} onPress={() => setMode('enter')}>
-              <Ionicons name="key" size={24} color={colors.skyDark} />
-              <Text style={styles.optionText}>I have my partner’s code</Text>
-            </TouchableOpacity>
-          </Card>
-
-          <TouchableOpacity style={styles.logoutWrap} onPress={handleLogout}>
-            <Ionicons name="log-out" size={18} color={colors.textMuted} />
-            <Text style={styles.logoutText}>Sign out</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  if (mode === 'show' && generatedCode) {
-    return (
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>Your pairing code</Text>
-          <Text style={styles.subtitle}>Share this code with your partner. It expires in 10 minutes.</Text>
-          <View style={styles.codeBox}>
-            <Text style={styles.codeText}>{generatedCode}</Text>
-          </View>
-          <TouchableOpacity style={styles.backLink} onPress={() => { setMode(null); setGeneratedCode(null); setError(''); }}>
-            <Text style={styles.link}>Generate a new code</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  if (mode === 'generate') {
-    return (
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Generate code</Text>
-          <Text style={styles.subtitle}>Your partner will enter this code in their app.</Text>
-          <Card style={styles.card}>
-            <Button title="Generate 6-digit code" onPress={handleGenerate} loading={loading} />
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-          </Card>
-          <TouchableOpacity style={styles.backLink} onPress={() => { setMode(null); setError(''); }}>
-            <Text style={styles.link}>Back</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    );
-  }
+  const setJoinCodeAt = (index, char) => {
+    const digit = char.replace(/\D/g, '').slice(-1);
+    const next = [...joinCode];
+    next[index] = digit;
+    setJoinCode(next);
+  };
+  const otpInputRefs = useRef([]);
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Enter partner’s code</Text>
-        <Text style={styles.subtitle}>Type the 6-digit code your partner generated.</Text>
-        <Card style={styles.card}>
-          <Input
-            label="6-digit code"
-            value={code}
-            onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
-            placeholder="000000"
-            keyboardType="number-pad"
-          />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Button title="Pair" onPress={handleJoin} loading={loading} />
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={styles.iconWrap}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="people" size={44} color={colors.skyDark} />
+          </View>
+        </View>
+        <Text style={styles.title}>Link with your partner</Text>
+        <Text style={styles.subtitle}>Generate a code or enter your partner’s code to connect.</Text>
+
+        {/* Top half: Generate */}
+        <Card style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Generate connection code</Text>
+          <Text style={styles.sectionHint}>Your partner will enter this code in their app.</Text>
+          {!generatedCode ? (
+            <Button title="Generate 6-digit code" onPress={handleGenerate} loading={generateLoading} />
+          ) : (
+            <>
+              <View style={styles.codeBox}>
+                <Text style={styles.codeText}>{generatedCode}</Text>
+              </View>
+              <Text style={styles.codeExpiry}>Expires in 10 minutes. Waiting for partner…</Text>
+              <TouchableOpacity style={styles.textButton} onPress={() => { setGeneratedCode(null); setError(''); }}>
+                <Text style={styles.textButtonLabel}>Generate a new code</Text>
+              </TouchableOpacity>
+            </>
+          )}
+          {error && !joinCodeStr ? <Text style={styles.error}>{error}</Text> : null}
         </Card>
-        <TouchableOpacity style={styles.backLink} onPress={() => { setMode(null); setCode(''); setError(''); }}>
-          <Text style={styles.link}>Back</Text>
+
+        {/* Bottom half: Join */}
+        <Card style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Enter partner’s code</Text>
+          <Text style={styles.sectionHint}>Type the 6-digit code your partner shared.</Text>
+          <View style={styles.otpRow}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <TextInput
+                key={i}
+                ref={(r) => (otpInputRefs.current[i] = r)}
+                style={[styles.otpCell, joinCode[i] && styles.otpCellFilled]}
+                value={joinCode[i]}
+                onChangeText={(t) => {
+                  setJoinCodeAt(i, t);
+                  if (t && i < 5) otpInputRefs.current[i + 1]?.focus();
+                }}
+                onKeyPress={({ nativeEvent }) => {
+                  if (nativeEvent.key === 'Backspace' && !joinCode[i] && i > 0) otpInputRefs.current[i - 1]?.focus();
+                }}
+                keyboardType="number-pad"
+                maxLength={1}
+                selectTextOnFocus
+              />
+            ))}
+          </View>
+          <Button title="Connect" onPress={handleJoin} loading={joinLoading} disabled={joinCodeStr.length !== 6} />
+          {error && joinCodeStr ? <Text style={styles.error}>{error}</Text> : null}
+        </Card>
+
+        <TouchableOpacity style={styles.logoutWrap} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={18} color={colors.textMuted} />
+          <Text style={styles.logoutText}>Sign out</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -154,7 +159,7 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 48,
     paddingBottom: 40,
   },
   iconWrap: { alignItems: 'center', marginBottom: 16 },
@@ -185,38 +190,62 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     lineHeight: 22,
   },
-  card: { marginBottom: 24 },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.blush + '40',
+  sectionCard: { marginBottom: 24 },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 6,
   },
-  optionText: { fontSize: 17, color: colors.text, marginLeft: 14, fontWeight: '600' },
+  sectionHint: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
   codeBox: {
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    paddingVertical: 28,
-    paddingHorizontal: 32,
+    backgroundColor: colors.cream,
+    borderRadius: 28,
+    paddingVertical: 24,
+    paddingHorizontal: 28,
     alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 6,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.blush + '80',
   },
-  codeText: { fontSize: 42, fontWeight: '700', letterSpacing: 8, color: colors.text },
+  codeText: { fontSize: 40, fontWeight: '800', letterSpacing: 10, color: colors.blushDark },
+  codeExpiry: { fontSize: 13, color: colors.textMuted, marginBottom: 12 },
+  textButton: { alignSelf: 'center' },
+  textButtonLabel: { fontSize: 15, color: colors.skyDark, fontWeight: '600' },
+  otpRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+  otpCell: {
+    width: 48,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: colors.blush + '60',
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    padding: 0,
+  },
+  otpCellFilled: {
+    borderColor: colors.blushDark,
+    backgroundColor: colors.surface,
+  },
   error: { fontSize: 14, color: colors.blushDark, marginTop: 12, textAlign: 'center' },
-  backLink: { alignSelf: 'center', marginTop: 8 },
-  link: { fontSize: 15, color: colors.skyDark, fontWeight: '600' },
   logoutWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    marginTop: 32,
+    marginTop: 24,
     gap: 8,
   },
   logoutText: { fontSize: 15, color: colors.textMuted },

@@ -4,6 +4,7 @@ const { OAuth2Client } = require('google-auth-library');
 const appleSignin = require('apple-signin-auth');
 const User = require('../models/User');
 const { JWT_SECRET } = require('../config');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 const googleClient = process.env.GOOGLE_CLIENT_ID
@@ -40,6 +41,21 @@ async function verifyGoogleToken(identityToken) {
     email: payload.email || null,
   };
 }
+
+router.get('/me', requireAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    res.json({
+      user: {
+        id: user._id,
+        email: user.email || undefined,
+        partnerId: user.partnerId ?? null,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.post('/oauth', async (req, res) => {
   try {
