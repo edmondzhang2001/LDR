@@ -8,17 +8,21 @@ import { colors } from '../src/theme/colors';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, partnerId } = useAuthStore();
+  const { user, partnerId, partner, fetchPartner } = useAuthStore();
 
   // Guard: unpaired users cannot see the dashboard
   useEffect(() => {
     if (user && partnerId == null) router.replace('/pair');
   }, [user, partnerId, router]);
 
+  // Fetch partner profile when we have partnerId but no partner in store
+  useEffect(() => {
+    if (user?.partnerId && partner == null) fetchPartner();
+  }, [user?.partnerId, partner, fetchPartner]);
+
   if (!user || partnerId == null) return null;
 
-  // Show partnerId until we have partner email from API (e.g. GET /partner)
-  const partnerLabel = typeof partnerId === 'string' ? partnerId : (partnerId?.toString?.() ?? 'Your partner');
+  const partnerName = partner?.name || 'your partner';
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -26,25 +30,24 @@ export default function HomeScreen() {
         <View style={styles.iconWrap}>
           <Ionicons name="heart" size={40} color={colors.blushDark} />
         </View>
-        <Text style={styles.connectedTitle}>Connected with your partner</Text>
-        <Text style={styles.partnerId}>Partner: {partnerLabel}</Text>
+        <Text style={styles.connectedTitle}>Connected with {partnerName}</Text>
       </View>
 
       <View style={styles.cards}>
-        <Card style={styles.placeholderCard}>
-          <View style={styles.placeholderIconWrap}>
-            <Ionicons name="partly-sunny-outline" size={32} color={colors.skyDark} />
-          </View>
-          <Text style={styles.placeholderTitle}>Partner Stats</Text>
-          <Text style={styles.placeholderSubtitle}>Weather, battery & location — coming soon</Text>
-        </Card>
-
         <Card style={styles.placeholderCard}>
           <View style={styles.placeholderIconWrap}>
             <Ionicons name="image-outline" size={32} color={colors.blushDark} />
           </View>
           <Text style={styles.placeholderTitle}>Recent Photo</Text>
           <Text style={styles.placeholderSubtitle}>Latest from your partner — coming soon</Text>
+        </Card>
+        
+        <Card style={styles.placeholderCard}>
+          <View style={styles.placeholderIconWrap}>
+            <Ionicons name="partly-sunny-outline" size={32} color={colors.skyDark} />
+          </View>
+          <Text style={styles.placeholderTitle}>Partner Stats</Text>
+          <Text style={styles.placeholderSubtitle}>Weather, battery & location — coming soon</Text>
         </Card>
 
         <Card style={styles.placeholderCard}>

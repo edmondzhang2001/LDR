@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { api, setApiToken, setApiLogout, getMe, updateProfile } from '../lib/api';
+import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner } from '../lib/api';
 
 const TOKEN_KEY = 'ldr_token';
 const USER_KEY = 'ldr_user';
@@ -20,7 +20,7 @@ export const useAuthStore = create((set, get) => {
     setApiToken(null);
     SecureStore.deleteItemAsync(TOKEN_KEY);
     SecureStore.deleteItemAsync(USER_KEY);
-    set({ token: null, user: null, partnerId: null, hydrated: true });
+    set({ token: null, user: null, partnerId: null, partner: null, hydrated: true });
   };
 
   setApiLogout(logout);
@@ -29,6 +29,7 @@ export const useAuthStore = create((set, get) => {
     token: null,
     user: null,
     partnerId: null,
+    partner: null,
     hydrated: false,
 
     setPartnerId: (partnerId) => set((state) => {
@@ -89,6 +90,26 @@ export const useAuthStore = create((set, get) => {
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
       setApiToken(data.token);
       set({ token: data.token, user, partnerId: user.partnerId });
+    },
+
+    /** Fetch partner profile (GET /api/user/partner) and save to store. */
+    fetchPartner: async () => {
+      const { partnerId } = get();
+      if (!partnerId) return null;
+      try {
+        const data = await getPartner();
+        const partner = data.partner
+          ? {
+              id: data.partner.id,
+              name: data.partner.name ?? undefined,
+              email: data.partner.email ?? undefined,
+            }
+          : null;
+        set({ partner });
+        return partner;
+      } catch {
+        return null;
+      }
     },
 
     /** Update profile (name) and sync store. */

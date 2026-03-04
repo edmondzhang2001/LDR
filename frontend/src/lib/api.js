@@ -40,6 +40,12 @@ export async function updateProfile({ name }) {
   return data;
 }
 
+/** GET /api/user/partner — fetch partner profile (name, etc.). */
+export async function getPartner() {
+  const { data } = await api.get('/user/partner');
+  return data;
+}
+
 /** POST /api/couple/pair/generate — generate 6-digit pairing code. */
 export async function generatePairCode() {
   const { data } = await api.post('/couple/pair/generate');
