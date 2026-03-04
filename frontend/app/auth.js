@@ -66,7 +66,13 @@ export default function AuthScreen() {
       if (!credential.identityToken) {
         throw new Error('No identity token from Apple');
       }
-      await signInWithOAuth('apple', credential.identityToken);
+      const fullName =
+        credential.fullName &&
+        [credential.fullName.givenName, credential.fullName.familyName]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+      await signInWithOAuth('apple', credential.identityToken, fullName || undefined);
       router.replace('/');
     } catch (err) {
       if (err.code === 'ERR_REQUEST_CANCELED') {
@@ -104,7 +110,9 @@ export default function AuthScreen() {
           'No identity token from Google. Ensure GoogleSignin is configured with webClientId.'
         );
       }
-      await signInWithOAuth('google', idToken);
+      const userInfo = signInResult?.data?.user ?? signInResult?.user;
+      const nameFromGoogle = (userInfo?.name ?? [userInfo?.givenName, userInfo?.familyName].filter(Boolean).join(' ').trim()) || undefined;
+      await signInWithOAuth('google', idToken, nameFromGoogle);
       router.replace('/');
     } catch (err) {
       if (err.code === statusCodes.SIGN_IN_CANCELLED) {

@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const authRouter = require('./routes/auth');
 const coupleRouter = require('./routes/couple');
 const uploadRouter = require('./routes/upload');
+const userRouter = require('./routes/user');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRouter);
 app.use('/api/couple', coupleRouter);
+app.use('/api/user', userRouter);
 app.use('/api/upload', uploadRouter);
 
 app.get('/health', (req, res) => {

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { api, setApiToken, setApiLogout, getMe } from '../lib/api';
+import { api, setApiToken, setApiLogout, getMe, updateProfile } from '../lib/api';
 
 const TOKEN_KEY = 'ldr_token';
 const USER_KEY = 'ldr_user';
@@ -10,6 +10,7 @@ function normalizeUser(dataUser) {
   return {
     id: dataUser.id,
     email: dataUser.email ?? undefined,
+    name: dataUser.name ?? undefined,
     partnerId: dataUser.partnerId ?? null,
   };
 }
@@ -34,6 +35,16 @@ export const useAuthStore = create((set, get) => {
       const user = state.user ? { ...state.user, partnerId } : null;
       if (user) SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
       return { partnerId, user };
+    }),
+
+    /** Update user in store (e.g. after profile update). Persists to SecureStore. */
+    setUser: (user) => set((state) => {
+      if (!user) return state;
+      SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+      return {
+        user,
+        partnerId: user.partnerId ?? state.partnerId,
+      };
     }),
 
     /** Fetch /api/auth/me and update user + partnerId (and persist). Call on app load and when polling after generating code. */
@@ -67,16 +78,26 @@ export const useAuthStore = create((set, get) => {
       }
     },
 
-    signInWithOAuth: async (provider, identityToken) => {
-      const { data } = await api.post('/auth/oauth', {
-        provider,
-        identityToken,
-      });
+    signInWithOAuth: async (provider, identityToken, nameFromOAuth) => {
+      const body = { provider, identityToken };
+      if (typeof nameFromOAuth === 'string' && nameFromOAuth.trim()) {
+        body.name = nameFromOAuth.trim();
+      }
+      const { data } = await api.post('/auth/oauth', body);
       const user = normalizeUser(data.user);
       await SecureStore.setItemAsync(TOKEN_KEY, data.token);
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
       setApiToken(data.token);
       set({ token: data.token, user, partnerId: user.partnerId });
+    },
+
+    /** Update profile (name) and sync store. */
+    updateProfileName: async (name) => {
+      const data = await updateProfile({ name });
+      const user = normalizeUser(data.user);
+      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+      set((state) => ({ user, partnerId: user.partnerId ?? state.partnerId }));
+      return user;
     },
 
     logout,

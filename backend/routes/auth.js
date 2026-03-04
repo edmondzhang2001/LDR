@@ -49,6 +49,7 @@ router.get('/me', requireAuth, async (req, res) => {
       user: {
         id: user._id,
         email: user.email || undefined,
+        name: user.name || undefined,
         partnerId: user.partnerId ?? null,
       },
     });
@@ -59,7 +60,7 @@ router.get('/me', requireAuth, async (req, res) => {
 
 router.post('/oauth', async (req, res) => {
   try {
-    const { identityToken, provider } = req.body;
+    const { identityToken, provider, name: nameFromClient } = req.body;
     if (!identityToken || typeof identityToken !== 'string') {
       return res.status(400).json({ error: 'identityToken is required' });
     }
@@ -93,6 +94,10 @@ router.post('/oauth', async (req, res) => {
 
     const oauthId = payload.sub;
     const email = payload.email || null;
+    const nameToSave =
+      typeof nameFromClient === 'string' && nameFromClient.trim()
+        ? nameFromClient.trim()
+        : null;
 
     let user = await User.findOne({ oauthId });
     if (!user) {
@@ -100,7 +105,11 @@ router.post('/oauth', async (req, res) => {
         oauthProvider: provider,
         oauthId,
         email,
+        ...(nameToSave && { name: nameToSave }),
       });
+    } else if (nameToSave && !user.name) {
+      user.name = nameToSave;
+      await user.save();
     }
 
     const token = signToken(user._id);
@@ -109,6 +118,7 @@ router.post('/oauth', async (req, res) => {
       user: {
         id: user._id,
         email: user.email || undefined,
+        name: user.name || undefined,
         partnerId: user.partnerId ?? null,
       },
     });

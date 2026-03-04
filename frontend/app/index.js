@@ -26,6 +26,7 @@ export default function Index() {
       const p = state.partnerId;
       guardDone.current = true;
       if (!u) router.replace('/auth');
+      else if (!u.name) router.replace('/profile');
       else if (p == null) router.replace('/pair');
       else router.replace('/home');
     })();

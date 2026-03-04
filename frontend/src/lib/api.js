@@ -34,6 +34,12 @@ export async function getMe() {
   return data;
 }
 
+/** PUT /api/user/profile — update display name. */
+export async function updateProfile({ name }) {
+  const { data } = await api.put('/user/profile', { name });
+  return data;
+}
+
 /** POST /api/couple/pair/generate — generate 6-digit pairing code. */
 export async function generatePairCode() {
   const { data } = await api.post('/couple/pair/generate');
