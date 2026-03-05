@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, Pressable, Modal, Platform } from 'react-native
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from './Card';
-import { colors, glassTextShadow } from '../theme/colors';
+import { colors, glassTextShadow, trayTextShadow, trayTextColor } from '../theme/colors';
 import { getCountdown, formatCountdown } from '../utils/countdown';
 
 const RADIUS = 24;
 
-export function ReunionCard({ reunion, saveReunion, endReunion, glass }) {
+export function ReunionCard({ reunion, saveReunion, endReunion, glass, inTray }) {
   const [showPicker, setShowPicker] = useState(false);
   const [pickerDate, setPickerDate] = useState(() => {
     const d = new Date();
@@ -60,15 +60,18 @@ export function ReunionCard({ reunion, saveReunion, endReunion, glass }) {
     startDate && isTogether
       ? Math.floor((Date.now() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1
       : 0;
-  const ts = (s) => (glass ? [s, glassTextShadow] : s);
+  const ts = (s) =>
+    inTray ? [{ ...s, color: trayTextColor }, trayTextShadow] : glass ? [s, glassTextShadow] : s;
+  const iconColor = inTray ? trayTextColor : colors.skyDark;
+  const iconColorBlush = inTray ? trayTextColor : colors.blushDark;
 
   // State 1: Unscheduled
   if (!hasReunion) {
     return (
       <>
-        <Card style={[styles.card, styles.cardDefault]} glass={glass}>
+        <Card style={[styles.card, styles.cardDefault, inTray && styles.cardTray]} glass={glass || inTray}>
           <View style={styles.iconWrap}>
-            <Ionicons name="calendar-outline" size={32} color={colors.skyDark} />
+            <Ionicons name="calendar-outline" size={32} color={iconColor} />
           </View>
           <Text style={ts(styles.title)}>Plan next visit</Text>
           <Text style={ts(styles.subtitle)}>Set a date and count down together</Text>
@@ -113,9 +116,9 @@ export function ReunionCard({ reunion, saveReunion, endReunion, glass }) {
   // State 3: Together mode
   if (isTogether) {
     return (
-      <Card style={[styles.card, styles.cardTogether]} glass={glass}>
+      <Card style={[styles.card, styles.cardTogether, inTray && styles.cardTray]} glass={glass || inTray}>
         <View style={styles.iconWrapTogether}>
-          <Ionicons name="heart" size={28} color={colors.blushDark} />
+          <Ionicons name="heart" size={28} color={iconColorBlush} />
         </View>
         <Text style={ts(styles.togetherTitle)}>You're Together!</Text>
         <Text style={ts(styles.dayOfVisit)}>Day {dayOfVisit} of visit</Text>
@@ -134,7 +137,7 @@ export function ReunionCard({ reunion, saveReunion, endReunion, glass }) {
 
   return (
     <>
-      <Card style={[styles.card, styles.cardDefault]} glass={glass}>
+      <Card style={[styles.card, styles.cardDefault, inTray && styles.cardTray]} glass={glass || inTray}>
         <View style={styles.countdownRow}>
           <Text style={ts(styles.countdownValue)}>{countdownText}</Text>
           <Pressable
@@ -142,7 +145,7 @@ export function ReunionCard({ reunion, saveReunion, endReunion, glass }) {
             onPress={handleOpenPicker}
             hitSlop={12}
           >
-            <Ionicons name="pencil-outline" size={20} color={colors.textMuted} />
+            <Ionicons name="pencil-outline" size={20} color={inTray ? trayTextColor : colors.textMuted} />
           </Pressable>
         </View>
         <Text style={ts(styles.countdownLabel)}>until you're together</Text>
@@ -197,6 +200,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.blush + '40',
     borderWidth: 1,
     borderColor: colors.blush + '99',
+  },
+  cardTray: {
+    backgroundColor: 'transparent',
   },
   iconWrap: {
     width: 56,

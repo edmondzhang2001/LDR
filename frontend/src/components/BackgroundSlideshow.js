@@ -1,63 +1,70 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Image, StyleSheet, Animated } from 'react-native';
+import { View, Animated, StyleSheet } from 'react-native';
 
-const CROSSFADE_DURATION = 1500;
-const HOLD_DURATION = 5000;
+const CROSSFADE_DURATION_MS = 2000;
 
 /**
- * Combines user + partner photos (last 24h), sorted by createdAt, and loops a slow cross-fade.
+ * Two-layer crossfade: exactly two images, Layer A (bottom) and Layer B (top).
+ * B fades from 0 to 1; on complete, index advances, B opacity resets to 0, repeat.
+ * Seamless loop including last → first.
  */
 export function BackgroundSlideshow({ userPhotos = [], partnerPhotos = [] }) {
-  const allPhotos = [...userPhotos, ...partnerPhotos]
+  const photos = [...userPhotos, ...partnerPhotos]
     .filter((p) => p?.url)
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-  const [index, setIndex] = useState(0);
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const opacityB = useRef(new Animated.Value(0)).current;
+  const animRef = useRef(null);
+  const n = photos.length;
 
   useEffect(() => {
-    if (allPhotos.length === 0) return;
-    const next = () => {
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: CROSSFADE_DURATION,
+    if (n <= 1) return;
+
+    let cancelled = false;
+
+    const runCycle = () => {
+      if (cancelled) return;
+      animRef.current = Animated.timing(opacityB, {
+        toValue: 1,
+        duration: CROSSFADE_DURATION_MS,
         useNativeDriver: true,
-      }).start(() => {
-        setIndex((i) => (i + 1) % allPhotos.length);
-        opacity.setValue(0);
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: CROSSFADE_DURATION,
-          useNativeDriver: true,
-        }).start();
+      });
+      animRef.current.start(() => {
+        if (cancelled) return;
+        setCurrentIndex((i) => (i + 1) % n);
+        opacityB.setValue(0);
+        requestAnimationFrame(runCycle);
       });
     };
-    const id = setInterval(next, HOLD_DURATION + CROSSFADE_DURATION);
-    return () => clearInterval(id);
-  }, [allPhotos.length, opacity]);
 
-  if (allPhotos.length === 0) return null;
+    runCycle();
 
-  const current = allPhotos[index];
-  const nextIndex = (index + 1) % allPhotos.length;
-  const nextPhoto = allPhotos[nextIndex];
+    return () => {
+      cancelled = true;
+      if (animRef.current != null) animRef.current.stop();
+    };
+  }, [n, opacityB]);
+
+  if (photos.length === 0) return null;
+
+  const indexA = currentIndex;
+  const indexB = (currentIndex + 1) % n;
+  const photoA = photos[indexA];
+  const photoB = photos[indexB];
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {nextPhoto && (
-        <Image
-          source={{ uri: nextPhoto.url }}
-          style={[StyleSheet.absoluteFillObject, styles.image]}
-          resizeMode="cover"
-        />
-      )}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
-        <Image
-          source={{ uri: current.url }}
-          style={[StyleSheet.absoluteFillObject, styles.image]}
-          resizeMode="cover"
-        />
-      </Animated.View>
+      <Animated.Image
+        source={{ uri: photoA.url }}
+        style={[StyleSheet.absoluteFillObject, styles.image]}
+        resizeMode="cover"
+      />
+      <Animated.Image
+        source={{ uri: photoB.url }}
+        style={[StyleSheet.absoluteFillObject, styles.image, { opacity: opacityB }]}
+        resizeMode="cover"
+      />
     </View>
   );
 }

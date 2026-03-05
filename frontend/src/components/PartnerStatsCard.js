@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from './Card';
-import { colors, glassTextShadow } from '../theme/colors';
+import { colors, glassTextShadow, trayTextShadow, trayTextColor } from '../theme/colors';
 import { fetchWeatherAt, weatherIconToIonicons } from '../utils/weather';
 import { calculateDistance } from '../utils/distance';
 import { formatRelativeTime } from '../utils/relativeTime';
 
 const RADIUS = 24;
 
-export function PartnerStatsCard({ partner, myLocation, glass }) {
+export function PartnerStatsCard({ partner, myLocation, glass, inTray }) {
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [, setTick] = useState(0);
@@ -76,13 +76,15 @@ export function PartnerStatsCard({ partner, myLocation, glass }) {
           ? colors.text
           : colors.blushDark;
   const relativeTime = lastUpdated ? formatRelativeTime(lastUpdated) : '';
-  const ts = (s) => (glass ? [s, glassTextShadow] : s);
+  const ts = (s) =>
+    inTray ? [{ ...s, color: trayTextColor }, trayTextShadow] : glass ? [s, glassTextShadow] : s;
+  const iconColor = inTray ? trayTextColor : colors.blushDark;
+  const cardStyle = inTray ? [styles.card, styles.cardTray] : styles.card;
 
   return (
-    <Card style={styles.card} glass={glass}>
-      {/* Top: Partner's city with location pin */}
+    <Card style={cardStyle} glass={glass || inTray}>
       <View style={styles.row}>
-        <Ionicons name="location" size={20} color={colors.blushDark} />
+        <Ionicons name="location" size={20} color={iconColor} />
         <Text style={ts(styles.city)} numberOfLines={1}>
           {cityName}
         </Text>
@@ -91,7 +93,7 @@ export function PartnerStatsCard({ partner, myLocation, glass }) {
       {/* Battery: icon + percentage + "Updated X ago" — only when we have valid data */}
       {showBatteryRow ? (
         <View style={styles.batteryRow}>
-          <Ionicons name={batteryIcon} size={22} color={batteryColor} />
+          <Ionicons name={batteryIcon} size={22} color={inTray ? trayTextColor : batteryColor} />
           <Text style={ts(styles.batteryPct)}>
             {batteryPct != null ? `${batteryPct}%` : '—'}
           </Text>
@@ -105,13 +107,13 @@ export function PartnerStatsCard({ partner, myLocation, glass }) {
       <View style={styles.weatherBlock}>
         {isLoading ? (
           <View style={styles.skeletonRow}>
-            <ActivityIndicator size="small" color={colors.skyDark} />
+            <ActivityIndicator size="small" color={inTray ? trayTextColor : colors.skyDark} />
             <Text style={ts(styles.skeletonText)}>Loading weather…</Text>
           </View>
         ) : weather ? (
           <>
             <View style={styles.tempRow}>
-              <Ionicons name={weatherIcon} size={36} color={colors.skyDark} />
+              <Ionicons name={weatherIcon} size={36} color={inTray ? trayTextColor : colors.skyDark} />
               <Text style={ts(styles.temp)}>{weather.tempFormatted}</Text>
             </View>
             <Text style={ts(styles.description)} numberOfLines={1}>
@@ -127,7 +129,7 @@ export function PartnerStatsCard({ partner, myLocation, glass }) {
 
       {/* Bottom: Distance pill */}
       <View style={styles.pillWrap}>
-        <View style={styles.pill}>
+        <View style={[styles.pill, inTray && styles.pillTray]}>
           <Text style={ts(styles.pillText)}>
             📍 {distanceKm != null ? `${distanceKm} km away` : '— km away'}
           </Text>
@@ -143,6 +145,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     borderRadius: RADIUS,
     backgroundColor: colors.surface,
+  },
+  cardTray: {
+    backgroundColor: 'transparent',
   },
   row: {
     flexDirection: 'row',
@@ -220,6 +225,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.blush + '80',
+  },
+  pillTray: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.4)',
   },
   pillText: {
     fontSize: 14,

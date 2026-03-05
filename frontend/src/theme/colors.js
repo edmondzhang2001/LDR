@@ -20,3 +20,11 @@ export const glassTextShadow = {
   textShadowOffset: { width: 0, height: 1 },
   textShadowRadius: 4,
 };
+
+/** White text + shadow for BottomActionTray (readable on any photo). */
+export const trayTextShadow = {
+  textShadowColor: 'rgba(0, 0, 0, 0.5)',
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 3,
+};
+export const trayTextColor = '#FFFFFF';

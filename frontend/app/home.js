@@ -7,17 +7,41 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { Card } from '../src/components/Card';
-import { PartnerStatsCard } from '../src/components/PartnerStatsCard';
 import { ReunionCard } from '../src/components/ReunionCard';
-import { BackgroundSlideshow } from '../src/components/BackgroundSlideshow';
+import { FramedSlideshow } from '../src/components/FramedSlideshow';
 import { updateLocation, updateBattery, getPresignedPhotoUrl } from '../src/lib/api';
-import { colors, glassTextShadow } from '../src/theme/colors';
+import { colors } from '../src/theme/colors';
+import { fetchWeatherAt, weatherIconToIonicons } from '../src/utils/weather';
+import { formatRelativeTime } from '../src/utils/relativeTime';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user, partnerId, partner, fetchPartner, refreshUser, logout, saveReunion, endReunion, addPhotoAfterUpload } = useAuthStore();
   const [myLocation, setMyLocation] = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+
+  const partnerLoc = partner?.location;
+  const hasPartnerCoords =
+    partnerLoc && typeof partnerLoc.lat === 'number' && typeof partnerLoc.lng === 'number';
+
+  useEffect(() => {
+    if (!hasPartnerCoords) {
+      setWeather(null);
+      return;
+    }
+    let cancelled = false;
+    setWeatherLoading(true);
+    fetchWeatherAt(partnerLoc.lat, partnerLoc.lng)
+      .then((data) => {
+        if (!cancelled) setWeather(data);
+      })
+      .finally(() => {
+        if (!cancelled) setWeatherLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [partnerLoc?.lat, partnerLoc?.lng]);
 
   // Level 1 sync: when app comes to foreground, silently fetch latest partner + current user data
   useEffect(() => {
@@ -100,8 +124,6 @@ export default function HomeScreen() {
 
   const userPhotos = user?.photos ?? [];
   const partnerPhotos = partner?.photos ?? [];
-  const slideshowPhotos = [...userPhotos, ...partnerPhotos].filter((p) => p?.url);
-  const isImmersiveMode = slideshowPhotos.length > 0;
 
   const uploadImageUri = async (uri) => {
     setPhotoUploading(true);
@@ -185,43 +207,73 @@ export default function HomeScreen() {
   if (!user || partnerId == null) return null;
 
   const partnerName = partner?.name || 'your partner';
-  const ts = (s) => (isImmersiveMode ? [s, glassTextShadow] : s);
+  const cityName = partnerLoc?.city?.trim() || '—';
+  const weatherIcon = weather?.icon ? weatherIconToIonicons(weather.icon) : 'partly-sunny-outline';
+  const rawBattery = partner?.batteryLevel;
+  const hasValidBattery =
+    typeof rawBattery === 'number' && !Number.isNaN(rawBattery) && rawBattery >= 0 && rawBattery <= 1;
+  const batteryPct = hasValidBattery ? Math.round(rawBattery * 100) : null;
+  const batteryIcon =
+    batteryPct == null
+      ? 'battery-outline'
+      : batteryPct >= 80
+        ? 'battery-full'
+        : batteryPct >= 20
+          ? 'battery-half'
+          : 'battery-dead';
+  const batteryColor =
+    batteryPct == null ? colors.textMuted : batteryPct >= 80 ? colors.success : batteryPct >= 20 ? colors.text : colors.blushDark;
+  const lastUpdated = partner?.lastUpdatedDataAt;
+  const relativeTime = lastUpdated ? formatRelativeTime(lastUpdated) : '';
 
   return (
     <View style={styles.container}>
-      {isImmersiveMode && (
-        <BackgroundSlideshow userPhotos={userPhotos} partnerPhotos={partnerPhotos} />
-      )}
-      <ScrollView
-        style={[styles.scrollView, isImmersiveMode && styles.scrollViewImmersive]}
-        contentContainerStyle={[styles.scroll, isImmersiveMode && styles.scrollImmersive]}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={[styles.iconWrap, isImmersiveMode && styles.iconWrapGlass]}>
+          <View style={styles.iconWrap}>
             <Ionicons name="heart" size={40} color={colors.blushDark} />
           </View>
-          <Text style={ts(styles.connectedTitle)}>Connected with {partnerName}</Text>
+          <Text style={styles.connectedTitle}>Connected with {partnerName}</Text>
         </View>
 
+        <FramedSlideshow userPhotos={userPhotos} partnerPhotos={partnerPhotos} />
+
         <View style={styles.cards}>
-          <Card style={styles.placeholderCard} glass={isImmersiveMode}>
-            <View style={styles.placeholderIconWrap}>
-              <Ionicons name="image-outline" size={32} color={colors.blushDark} />
+          {/* Row 1: Location (left) + Weather (right) */}
+          <View style={styles.statsRow}>
+            <Card style={styles.halfCard}>
+              <Ionicons name="location" size={22} color={colors.blushDark} />
+              <Text style={styles.halfCardTitle}>Location</Text>
+              <Text style={styles.halfCardValue} numberOfLines={1}>{cityName}</Text>
+            </Card>
+            <Card style={styles.halfCard}>
+              <Ionicons name={weatherIcon} size={22} color={colors.skyDark} />
+              <Text style={styles.halfCardTitle}>Weather</Text>
+              {weatherLoading && !weather ? (
+                <ActivityIndicator size="small" color={colors.skyDark} style={styles.weatherLoader} />
+              ) : (
+                <Text style={styles.halfCardValue}>{weather ? weather.tempFormatted : '—'}</Text>
+              )}
+            </Card>
+          </View>
+
+          {/* Row 2: Battery */}
+          <Card style={styles.batteryCard}>
+            <View style={styles.batteryRow}>
+              <Ionicons name={batteryIcon} size={24} color={batteryColor} />
+              <Text style={styles.batteryPct}>{batteryPct != null ? `${batteryPct}%` : '—'}</Text>
+              {relativeTime ? (
+                <Text style={styles.batteryUpdated}>Updated {relativeTime}</Text>
+              ) : null}
             </View>
-            <Text style={ts(styles.placeholderTitle)}>Daily Story</Text>
-            <Text style={ts(styles.placeholderSubtitle)}>
-              {slideshowPhotos.length > 0 ? 'Your photos are on the background' : 'Take a photo to start'}
-            </Text>
+            <Text style={styles.batteryLabel}>Partner's battery</Text>
           </Card>
 
-          <PartnerStatsCard partner={partner} myLocation={myLocation} glass={isImmersiveMode} />
-
+          {/* Row 3: Reunion (editable) */}
           <ReunionCard
             reunion={user.reunion}
             saveReunion={saveReunion}
             endReunion={endReunion}
-            glass={isImmersiveMode}
           />
 
           <Pressable style={({ pressed }) => [styles.signOutButton, pressed && styles.signOutButtonPressed]} onPress={logout}>
@@ -249,9 +301,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scrollView: { flex: 1 },
-  scrollViewImmersive: { backgroundColor: 'transparent' },
   scroll: { paddingHorizontal: 24, paddingTop: 56, paddingBottom: 100 },
-  scrollImmersive: { backgroundColor: 'transparent' },
   header: {
     alignItems: 'center',
     marginBottom: 32,
@@ -270,9 +320,6 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 6,
   },
-  iconWrapGlass: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
   connectedTitle: {
     fontSize: 22,
     fontWeight: '700',
@@ -285,29 +332,52 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   cards: { gap: 20 },
-  placeholderCard: {
-    minHeight: 120,
-    justifyContent: 'center',
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  placeholderIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.cream,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
+  halfCard: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
-  placeholderTitle: {
-    fontSize: 18,
+  halfCardTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginTop: 8,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  halfCardValue: {
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
   },
-  placeholderSubtitle: {
-    fontSize: 14,
+  weatherLoader: { marginTop: 4 },
+  batteryCard: {
+    paddingVertical: 16,
+    paddingHorizontal: 22,
+  },
+  batteryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  batteryPct: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  batteryUpdated: {
+    fontSize: 12,
     color: colors.textMuted,
-    lineHeight: 20,
+    marginLeft: 4,
+  },
+  batteryLabel: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 6,
   },
   signOutButton: {
     flexDirection: 'row',
