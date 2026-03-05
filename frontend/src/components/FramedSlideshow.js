@@ -7,10 +7,11 @@ const INTERVAL_MS = 4000;
 const FADE_DURATION_MS = 800;
 
 /**
- * Polaroid-style frame. All images mounted at once; cross-fade opacities (currentIndex -> 1, others -> 0) for flicker-free loop.
+ * Polaroid-style frame showing only the partner's photos (each user sees what their partner posted).
+ * Cross-fade opacities for flicker-free loop.
  */
 export function FramedSlideshow({ userPhotos = [], partnerPhotos = [] }) {
-  const photos = [...userPhotos, ...partnerPhotos]
+  const photos = (partnerPhotos ?? [])
     .filter((p) => p?.url)
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
