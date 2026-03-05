@@ -49,12 +49,22 @@ router.get('/me', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+    const reunion =
+      user.reunion?.startDate != null
+        ? {
+            startDate: user.reunion.startDate.toISOString(),
+            endDate: user.reunion.endDate
+              ? user.reunion.endDate.toISOString()
+              : null,
+          }
+        : null;
     res.json({
       user: {
         id: user._id,
         email: user.email || undefined,
         name: user.name || undefined,
         partnerId: user.partnerId ?? null,
+        reunion,
       },
     });
   } catch (err) {

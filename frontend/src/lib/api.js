@@ -68,3 +68,17 @@ export async function joinPair(code) {
   const { data } = await api.post('/couple/pair/join', { code: String(code).trim() });
   return data;
 }
+
+/** PUT /api/reunion — set reunion dates for both users. */
+export async function saveReunion(startDate, endDate) {
+  const { data } = await api.put('/reunion', {
+    startDate: typeof startDate === 'string' ? startDate : new Date(startDate).toISOString(),
+    endDate: endDate == null ? null : (typeof endDate === 'string' ? endDate : new Date(endDate).toISOString()),
+  });
+  return data;
+}
+
+/** DELETE /api/reunion — clear reunion for both users (end visit). */
+export async function endReunion() {
+  await api.delete('/reunion');
+}

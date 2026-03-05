@@ -56,6 +56,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    reunion: {
+      startDate: { type: Date, default: null },
+      endDate: { type: Date, default: null },
+    },
     pairingCode: {
       type: String,
       default: null,

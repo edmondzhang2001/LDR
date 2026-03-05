@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, AppState } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as Battery from 'expo-battery';
@@ -7,13 +7,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { Card } from '../src/components/Card';
 import { PartnerStatsCard } from '../src/components/PartnerStatsCard';
+import { ReunionCard } from '../src/components/ReunionCard';
 import { updateLocation, updateBattery } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, partnerId, partner, fetchPartner, logout } = useAuthStore();
+  const { user, partnerId, partner, fetchPartner, refreshUser, logout, saveReunion, endReunion } = useAuthStore();
   const [myLocation, setMyLocation] = useState(null);
+
+  // Level 1 sync: when app comes to foreground, silently fetch latest partner + current user data
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        fetchPartner();
+        refreshUser();
+      }
+    });
+    return () => subscription.remove();
+  }, [fetchPartner, refreshUser]);
 
   // Guard: no user (e.g. session invalid / DB wiped) → login
   useEffect(() => {
@@ -107,13 +119,11 @@ export default function HomeScreen() {
 
         <PartnerStatsCard partner={partner} myLocation={myLocation} />
 
-        <Card style={styles.placeholderCard}>
-          <View style={styles.placeholderIconWrap}>
-            <Ionicons name="calendar-outline" size={32} color={colors.skyDark} />
-          </View>
-          <Text style={styles.placeholderTitle}>Reunion Countdown</Text>
-          <Text style={styles.placeholderSubtitle}>Next reunion date — coming soon</Text>
-        </Card>
+        <ReunionCard
+          reunion={user.reunion}
+          saveReunion={saveReunion}
+          endReunion={endReunion}
+        />
 
         <Pressable style={({ pressed }) => [styles.signOutButton, pressed && styles.signOutButtonPressed]} onPress={logout}>
           <Ionicons name="log-out-outline" size={20} color={colors.textMuted} />

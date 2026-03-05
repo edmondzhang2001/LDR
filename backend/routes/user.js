@@ -12,7 +12,7 @@ router.get('/partner', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'No partner linked' });
     }
     const partner = await User.findById(partnerId)
-      .select('name email location batteryLevel lastUpdatedDataAt')
+      .select('name email location batteryLevel lastUpdatedDataAt reunion')
       .lean();
     if (!partner) {
       return res.status(404).json({ error: 'Partner not found' });
@@ -37,6 +37,15 @@ router.get('/partner', requireAuth, async (req, res) => {
         lastUpdatedDataAt: partner.lastUpdatedDataAt
           ? partner.lastUpdatedDataAt.toISOString()
           : null,
+        reunion:
+          partner.reunion?.startDate != null
+            ? {
+                startDate: new Date(partner.reunion.startDate).toISOString(),
+                endDate: partner.reunion.endDate
+                  ? new Date(partner.reunion.endDate).toISOString()
+                  : null,
+              }
+            : null,
       },
     });
   } catch (err) {

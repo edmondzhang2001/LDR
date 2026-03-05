@@ -12,6 +12,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-community/datetimepicker": "8.6.0",
     "@react-native-google-signin/google-signin": "^13.2.0",
     "axios": "^1.13.6",
     "expo": "~55.0.4",

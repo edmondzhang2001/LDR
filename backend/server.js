@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 
 const authRouter = require('./routes/auth');
 const coupleRouter = require('./routes/couple');
+const reunionRouter = require('./routes/reunion');
 const uploadRouter = require('./routes/upload');
 const userRouter = require('./routes/user');
 
@@ -16,6 +17,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRouter);
 app.use('/api/couple', coupleRouter);
+app.use('/api/reunion', reunionRouter);
 app.use('/api/user', userRouter);
 app.use('/api/upload', uploadRouter);
 

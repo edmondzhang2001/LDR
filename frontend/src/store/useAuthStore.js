@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner } from '../lib/api';
+import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion } from '../lib/api';
 
 const TOKEN_KEY = 'ldr_token';
 const USER_KEY = 'ldr_user';
@@ -12,6 +12,15 @@ function normalizeUser(dataUser) {
     email: dataUser.email ?? undefined,
     name: dataUser.name ?? undefined,
     partnerId: dataUser.partnerId ?? null,
+    reunion: dataUser.reunion ?? null,
+  };
+}
+
+function normalizeReunion(reunion) {
+  if (!reunion || reunion.startDate == null) return null;
+  return {
+    startDate: reunion.startDate ?? null,
+    endDate: reunion.endDate ?? null,
   };
 }
 
@@ -143,6 +152,7 @@ export const useAuthStore = create((set, get) => {
               location: data.partner.location,
               batteryLevel: data.partner.batteryLevel ?? null,
               lastUpdatedDataAt: data.partner.lastUpdatedDataAt ?? null,
+              reunion: normalizeReunion(data.partner.reunion),
             }
           : null;
         set({ partner });
@@ -159,6 +169,30 @@ export const useAuthStore = create((set, get) => {
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
       set((state) => ({ user, partnerId: user.partnerId ?? state.partnerId }));
       return user;
+    },
+
+    /** Set reunion dates for both users; updates local user and partner state. */
+    saveReunion: async (startDate, endDate) => {
+      const data = await apiSaveReunion(startDate, endDate);
+      const reunion = normalizeReunion(data.reunion);
+      set((state) => ({
+        user: state.user ? { ...state.user, reunion } : null,
+        partner: state.partner ? { ...state.partner, reunion } : null,
+      }));
+      const { user } = get();
+      if (user) SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+      return reunion;
+    },
+
+    /** Clear reunion for both users (end visit). */
+    endReunion: async () => {
+      await apiEndReunion();
+      set((state) => ({
+        user: state.user ? { ...state.user, reunion: null } : null,
+        partner: state.partner ? { ...state.partner, reunion: null } : null,
+      }));
+      const { user } = get();
+      if (user) SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
     },
 
     logout,
