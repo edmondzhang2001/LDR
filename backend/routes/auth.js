@@ -70,6 +70,11 @@ router.get('/me', requireAuth, async (req, res) => {
         partnerId: user.partnerId ?? null,
         reunion,
         photos,
+        timezone: user.timezone || undefined,
+        mood:
+          user.mood?.emoji != null || user.mood?.text != null
+            ? { emoji: user.mood.emoji || undefined, text: user.mood.text || undefined }
+            : undefined,
       },
     });
   } catch (err) {

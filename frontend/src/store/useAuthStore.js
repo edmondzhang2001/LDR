@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto } from '../lib/api';
+import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood } from '../lib/api';
 
 const TOKEN_KEY = 'ldr_token';
 const USER_KEY = 'ldr_user';
@@ -14,6 +14,11 @@ function normalizeUser(dataUser) {
     partnerId: dataUser.partnerId ?? null,
     reunion: dataUser.reunion ?? null,
     photos: Array.isArray(dataUser.photos) ? dataUser.photos : [],
+    timezone: dataUser.timezone ?? undefined,
+    mood:
+      dataUser.mood?.emoji != null || dataUser.mood?.text != null
+        ? { emoji: dataUser.mood.emoji ?? undefined, text: dataUser.mood.text ?? undefined }
+        : undefined,
   };
 }
 
@@ -98,6 +103,11 @@ export const useAuthStore = create((set, get) => {
           if (user) {
             await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
             set({ user, partnerId: user.partnerId ?? null, sessionVerified: true });
+            // Auto-sync device timezone to backend so partner can show our local time
+            try {
+              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+              if (tz) await updateSettings({ timezone: tz });
+            } catch (_) {}
           } else {
             set({ sessionVerified: true });
           }
@@ -155,6 +165,11 @@ export const useAuthStore = create((set, get) => {
               lastUpdatedDataAt: data.partner.lastUpdatedDataAt ?? null,
               reunion: normalizeReunion(data.partner.reunion),
               photos: Array.isArray(data.partner.photos) ? data.partner.photos : [],
+              timezone: data.partner.timezone ?? undefined,
+              mood:
+                data.partner.mood?.emoji != null || data.partner.mood?.text != null
+                  ? { emoji: data.partner.mood.emoji ?? undefined, text: data.partner.mood.text ?? undefined }
+                  : undefined,
             }
           : null;
         set({ partner });
@@ -204,6 +219,18 @@ export const useAuthStore = create((set, get) => {
         user: state.user ? { ...state.user, photos: data.photos ?? [] } : null,
       }));
       return data.photos;
+    },
+
+    /** Update mood (emoji, text); syncs to backend and store. */
+    updateMood: async (emoji, text) => {
+      const data = await apiUpdateMood({ emoji: emoji ?? '', text: text ?? '' });
+      const mood = data.mood ? { emoji: data.mood.emoji ?? undefined, text: data.mood.text ?? undefined } : undefined;
+      set((state) => ({
+        user: state.user ? { ...state.user, mood } : null,
+      }));
+      const { user } = get();
+      if (user) SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+      return mood;
     },
 
     logout,

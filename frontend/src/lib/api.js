@@ -57,6 +57,17 @@ export async function updateBattery(batteryLevel) {
   await api.put('/user/battery', { batteryLevel });
 }
 
+/** PUT /api/user/settings — update current user settings (e.g. timezone). */
+export async function updateSettings({ timezone }) {
+  await api.put('/user/settings', { timezone });
+}
+
+/** PUT /api/user/mood — update mood (emoji, text). Returns { mood }. */
+export async function updateMood({ emoji, text }) {
+  const { data } = await api.put('/user/mood', { emoji: emoji ?? '', text: text ?? '' });
+  return data;
+}
+
 /** POST /api/couple/pair/generate — generate 6-digit pairing code. */
 export async function generatePairCode() {
   const { data } = await api.post('/couple/pair/generate');

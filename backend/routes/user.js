@@ -12,7 +12,7 @@ router.get('/partner', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'No partner linked' });
     }
     const partner = await User.findById(partnerId)
-      .select('name email location batteryLevel lastUpdatedDataAt reunion photos')
+      .select('name email location batteryLevel lastUpdatedDataAt reunion photos timezone mood')
       .lean();
     if (!partner) {
       return res.status(404).json({ error: 'Partner not found' });
@@ -51,6 +51,14 @@ router.get('/partner', requireAuth, async (req, res) => {
               }
             : null,
         photos: partnerPhotos,
+        timezone: partner.timezone || undefined,
+        mood:
+          partner.mood?.emoji != null || partner.mood?.text != null
+            ? {
+                emoji: partner.mood.emoji || undefined,
+                text: partner.mood.text || undefined,
+              }
+            : undefined,
       },
     });
   } catch (err) {
@@ -115,6 +123,40 @@ router.put('/location', requireAuth, async (req, res) => {
     };
     await req.user.save();
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** PUT /api/user/settings — update current user settings (e.g. timezone). */
+router.put('/settings', requireAuth, async (req, res) => {
+  try {
+    const { timezone } = req.body;
+    if (typeof timezone !== 'string' || !timezone.trim()) {
+      return res.status(400).json({ error: 'timezone must be a non-empty string' });
+    }
+    req.user.timezone = timezone.trim();
+    await req.user.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** PUT /api/user/mood — update current user mood (emoji + optional text). */
+router.put('/mood', requireAuth, async (req, res) => {
+  try {
+    const { emoji, text } = req.body;
+    req.user.mood = req.user.mood || {};
+    req.user.mood.emoji = typeof emoji === 'string' && emoji.trim() ? emoji.trim() : null;
+    req.user.mood.text = typeof text === 'string' && text.trim() ? text.trim().slice(0, 15) : null;
+    await req.user.save();
+    res.json({
+      mood: {
+        emoji: req.user.mood.emoji || undefined,
+        text: req.user.mood.text || undefined,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

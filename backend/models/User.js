@@ -48,6 +48,14 @@ const userSchema = new mongoose.Schema(
         },
       },
     },
+    timezone: {
+      type: String,
+      default: 'UTC',
+    },
+    mood: {
+      emoji: { type: String, default: null },
+      text: { type: String, default: null },
+    },
     pushToken: {
       type: String,
       default: null,

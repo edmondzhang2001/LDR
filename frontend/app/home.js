@@ -9,18 +9,23 @@ import { useAuthStore } from '../src/store/useAuthStore';
 import { Card } from '../src/components/Card';
 import { ReunionCard } from '../src/components/ReunionCard';
 import { FramedSlideshow } from '../src/components/FramedSlideshow';
+import { MoodEditorModal } from '../src/components/MoodEditorModal';
 import { updateLocation, updateBattery, getPresignedPhotoUrl } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
 import { fetchWeatherAt, weatherIconToIonicons } from '../src/utils/weather';
 import { formatRelativeTime } from '../src/utils/relativeTime';
+import { usePartnerTime } from '../src/hooks/usePartnerTime';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, partnerId, partner, fetchPartner, refreshUser, logout, saveReunion, endReunion, addPhotoAfterUpload } = useAuthStore();
+  const { user, partnerId, partner, fetchPartner, refreshUser, logout, saveReunion, endReunion, addPhotoAfterUpload, updateMood } = useAuthStore();
   const [myLocation, setMyLocation] = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const [moodModalVisible, setMoodModalVisible] = useState(false);
+
+  const partnerTime = usePartnerTime(partner?.timezone);
 
   const partnerLoc = partner?.location;
   const hasPartnerCoords =
@@ -234,6 +239,28 @@ export default function HomeScreen() {
             <Ionicons name="heart" size={40} color={colors.blushDark} />
           </View>
           <Text style={styles.connectedTitle}>Connected with {partnerName}</Text>
+          {/* Mood pills: partner (read-only) + current user (editable) */}
+          <View style={styles.moodRow}>
+            {partner?.mood?.emoji != null || partner?.mood?.text ? (
+              <View style={styles.moodPill}>
+                <Text style={styles.moodEmoji}>{partner.mood?.emoji ?? '💭'}</Text>
+                <Text style={styles.moodText} numberOfLines={1}>{partner.mood?.text || 'Status'}</Text>
+              </View>
+            ) : null}
+            <Pressable
+              style={({ pressed }) => [styles.moodPill, styles.moodPillSelf, pressed && styles.moodPillPressed]}
+              onPress={() => setMoodModalVisible(true)}
+            >
+              {user?.mood?.emoji != null || user?.mood?.text ? (
+                <>
+                  <Text style={styles.moodEmoji}>{user.mood?.emoji ?? '💭'}</Text>
+                  <Text style={styles.moodText} numberOfLines={1}>{user.mood?.text || 'Status'}</Text>
+                </>
+              ) : (
+                <Text style={styles.moodSetStatus}>+ Set Status</Text>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         <FramedSlideshow userPhotos={userPhotos} partnerPhotos={partnerPhotos} />
@@ -245,6 +272,12 @@ export default function HomeScreen() {
               <Ionicons name="location" size={22} color={colors.blushDark} />
               <Text style={styles.halfCardTitle}>Location</Text>
               <Text style={styles.halfCardValue} numberOfLines={1}>{cityName}</Text>
+              {partnerTime ? (
+                <View style={styles.partnerTimeRow}>
+                  <Ionicons name="time-outline" size={18} color={colors.blushDark} />
+                  <Text style={styles.partnerTimeText}>{partnerTime}</Text>
+                </View>
+              ) : null}
             </Card>
             <Card style={styles.halfCard}>
               <Ionicons name={weatherIcon} size={22} color={colors.skyDark} />
@@ -282,6 +315,13 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <MoodEditorModal
+        visible={moodModalVisible}
+        currentMood={user?.mood}
+        onSave={(emoji, text) => updateMood(emoji ?? '', text ?? '')}
+        onClose={() => setMoodModalVisible(false)}
+      />
 
       <Pressable
         style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
@@ -326,6 +366,58 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     marginBottom: 4,
+  },
+  moodRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 12,
+  },
+  moodPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  moodPillSelf: {
+    backgroundColor: colors.blush,
+  },
+  moodPillPressed: {
+    opacity: 0.9,
+  },
+  moodEmoji: {
+    fontSize: 18,
+  },
+  moodText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    maxWidth: 100,
+  },
+  moodSetStatus: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  partnerTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  partnerTimeText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text,
   },
   partnerId: {
     fontSize: 14,
