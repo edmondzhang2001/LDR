@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { Card } from '../src/components/Card';
 import { ReunionCard } from '../src/components/ReunionCard';
-import { FramedSlideshow } from '../src/components/FramedSlideshow';
+import { PostcardStack } from '../src/components/PostcardStack';
 import { MoodEditorModal } from '../src/components/MoodEditorModal';
 import { updateLocation, updateBattery, getPresignedPhotoUrl } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
@@ -275,7 +275,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <FramedSlideshow userPhotos={userPhotos} partnerPhotos={partnerPhotos} />
+        <PostcardStack partnerPhotos={partnerPhotos} />
 
         <View style={styles.cards}>
           {/* Row 1: Location (left) + Weather (right) */}
