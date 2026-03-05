@@ -141,6 +141,8 @@ export const useAuthStore = create((set, get) => {
               name: data.partner.name ?? undefined,
               email: data.partner.email ?? undefined,
               location: data.partner.location,
+              batteryLevel: data.partner.batteryLevel ?? null,
+              lastUpdatedDataAt: data.partner.lastUpdatedDataAt ?? null,
             }
           : null;
         set({ partner });

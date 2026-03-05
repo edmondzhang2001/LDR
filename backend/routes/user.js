@@ -12,7 +12,7 @@ router.get('/partner', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'No partner linked' });
     }
     const partner = await User.findById(partnerId)
-      .select('name email location')
+      .select('name email location batteryLevel lastUpdatedDataAt')
       .lean();
     if (!partner) {
       return res.status(404).json({ error: 'Partner not found' });
@@ -32,8 +32,30 @@ router.get('/partner', requireAuth, async (req, res) => {
         name: partner.name || undefined,
         email: partner.email || undefined,
         location,
+        batteryLevel:
+          partner.batteryLevel != null ? partner.batteryLevel / 100 : null,
+        lastUpdatedDataAt: partner.lastUpdatedDataAt
+          ? partner.lastUpdatedDataAt.toISOString()
+          : null,
       },
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** PUT /api/user/battery — update current user's battery level (0–1). Sets lastUpdatedDataAt. */
+router.put('/battery', requireAuth, async (req, res) => {
+  try {
+    const { batteryLevel } = req.body;
+    if (typeof batteryLevel !== 'number' || Number.isNaN(batteryLevel)) {
+      return res.status(400).json({ error: 'batteryLevel must be a number' });
+    }
+    const value = Math.max(0, Math.min(1, batteryLevel));
+    req.user.batteryLevel = Math.round(value * 100);
+    req.user.lastUpdatedDataAt = new Date();
+    await req.user.save();
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

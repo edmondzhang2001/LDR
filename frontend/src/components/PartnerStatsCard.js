@@ -5,12 +5,19 @@ import { Card } from './Card';
 import { colors } from '../theme/colors';
 import { fetchWeatherAt, weatherIconToIonicons } from '../utils/weather';
 import { calculateDistance } from '../utils/distance';
+import { formatRelativeTime } from '../utils/relativeTime';
 
 const RADIUS = 24;
 
 export function PartnerStatsCard({ partner, myLocation }) {
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!partner?.lastUpdatedDataAt) return;
+    const id = setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, [partner?.lastUpdatedDataAt]);
 
   const partnerLoc = partner?.location;
   const hasPartnerCoords = partnerLoc && typeof partnerLoc.lat === 'number' && typeof partnerLoc.lng === 'number';
@@ -43,6 +50,33 @@ export function PartnerStatsCard({ partner, myLocation }) {
   const isLoading = weatherLoading && !weather;
   const weatherIcon = weather?.icon ? weatherIconToIonicons(weather.icon) : 'partly-sunny-outline';
 
+  const rawBattery = partner?.batteryLevel;
+  const lastUpdated = partner?.lastUpdatedDataAt;
+  const hasValidBattery =
+    typeof rawBattery === 'number' &&
+    !Number.isNaN(rawBattery) &&
+    rawBattery >= 0 &&
+    rawBattery <= 1;
+  const batteryPct = hasValidBattery ? Math.round(rawBattery * 100) : null;
+  const showBatteryRow = hasValidBattery;
+  const batteryIcon =
+    batteryPct == null
+      ? 'battery-outline'
+      : batteryPct >= 80
+        ? 'battery-full'
+        : batteryPct >= 20
+          ? 'battery-half'
+          : 'battery-dead';
+  const batteryColor =
+    batteryPct == null
+      ? colors.textMuted
+      : batteryPct >= 80
+        ? colors.success
+        : batteryPct >= 20
+          ? colors.text
+          : colors.blushDark;
+  const relativeTime = lastUpdated ? formatRelativeTime(lastUpdated) : '';
+
   return (
     <Card style={styles.card}>
       {/* Top: Partner's city with location pin */}
@@ -52,6 +86,19 @@ export function PartnerStatsCard({ partner, myLocation }) {
           {cityName}
         </Text>
       </View>
+
+      {/* Battery: icon + percentage + "Updated X ago" — only when we have valid data */}
+      {showBatteryRow ? (
+        <View style={styles.batteryRow}>
+          <Ionicons name={batteryIcon} size={22} color={batteryColor} />
+          <Text style={styles.batteryPct}>
+            {batteryPct != null ? `${batteryPct}%` : '—'}
+          </Text>
+          {relativeTime ? (
+            <Text style={styles.batteryUpdated}>Updated {relativeTime}</Text>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* Middle: Temperature and weather description */}
       <View style={styles.weatherBlock}>
@@ -107,6 +154,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     flex: 1,
+  },
+  batteryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  batteryPct: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  batteryUpdated: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginLeft: 4,
   },
   weatherBlock: {
     marginBottom: 16,

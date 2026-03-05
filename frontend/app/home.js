@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import * as Battery from 'expo-battery';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { Card } from '../src/components/Card';
 import { PartnerStatsCard } from '../src/components/PartnerStatsCard';
-import { updateLocation } from '../src/lib/api';
+import { updateLocation, updateBattery } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
 
 export default function HomeScreen() {
@@ -50,6 +51,36 @@ export default function HomeScreen() {
       }
     })();
     return () => { cancelled = true; };
+  }, []);
+
+  // Sync battery level on mount and when it changes while app is open
+  useEffect(() => {
+    let subscription = null;
+    const SIMULATOR_MOCK_LEVEL = 0.85;
+    const normalizeLevel = (level) => {
+      if (typeof level !== 'number' || Number.isNaN(level)) return null;
+      if (level < 0) return SIMULATOR_MOCK_LEVEL; // iOS Simulator returns -1
+      return Math.max(0, Math.min(1, level));
+    };
+    const syncBattery = async (level) => {
+      const value = normalizeLevel(level);
+      if (value == null) return;
+      try {
+        await updateBattery(value);
+      } catch (_) {}
+    };
+    (async () => {
+      try {
+        const level = await Battery.getBatteryLevelAsync();
+        await syncBattery(level);
+        subscription = Battery.addBatteryLevelListener(({ batteryLevel }) => {
+          syncBattery(batteryLevel);
+        });
+      } catch (_) {}
+    })();
+    return () => {
+      if (subscription?.remove) subscription.remove();
+    };
   }, []);
 
   if (!user || partnerId == null) return null;

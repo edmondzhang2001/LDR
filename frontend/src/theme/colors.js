@@ -9,6 +9,7 @@ export const colors = {
   text: '#5C4A4A',
   textMuted: '#8B7B7B',
   white: '#FFFFFF',
+  success: '#7CB87C',
   shadow: 'rgba(92, 74, 74, 0.08)',
   shadowStrong: 'rgba(92, 74, 74, 0.12)',
 };

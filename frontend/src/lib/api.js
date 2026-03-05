@@ -52,6 +52,11 @@ export async function updateLocation({ city, lat, lng }) {
   await api.put('/user/location', { city, lat, lng });
 }
 
+/** PUT /api/user/battery — update current user battery level (0–1). */
+export async function updateBattery(batteryLevel) {
+  await api.put('/user/battery', { batteryLevel });
+}
+
 /** POST /api/couple/pair/generate — generate 6-digit pairing code. */
 export async function generatePairCode() {
   const { data } = await api.post('/couple/pair/generate');
