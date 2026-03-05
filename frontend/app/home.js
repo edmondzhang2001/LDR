@@ -230,6 +230,7 @@ export default function HomeScreen() {
     batteryPct == null ? colors.textMuted : batteryPct >= 80 ? colors.success : batteryPct >= 20 ? colors.text : colors.blushDark;
   const lastUpdated = partner?.lastUpdatedDataAt;
   const relativeTime = lastUpdated ? formatRelativeTime(lastUpdated) : '';
+  const partnerFirstName = (partner?.name?.trim().split(/\s+/)[0] || 'PARTNER').toUpperCase();
 
   return (
     <View style={styles.container}>
@@ -239,27 +240,38 @@ export default function HomeScreen() {
             <Ionicons name="heart" size={40} color={colors.blushDark} />
           </View>
           <Text style={styles.connectedTitle}>Connected with {partnerName}</Text>
-          {/* Mood pills: partner (read-only) + current user (editable) */}
+          {/* Mood pills: partner (read-only, anchored) + me (editable with affordance) */}
           <View style={styles.moodRow}>
-            {partner?.mood?.emoji != null || partner?.mood?.text ? (
-              <View style={styles.moodPill}>
-                <Text style={styles.moodEmoji}>{partner.mood?.emoji ?? '💭'}</Text>
-                <Text style={styles.moodText} numberOfLines={1}>{partner.mood?.text || 'Status'}</Text>
+            <View style={styles.moodColumn}>
+              <Text style={styles.moodColumnLabel}>{partnerFirstName}</Text>
+              <View style={styles.moodPillPartner}>
+                {partner?.mood?.emoji != null || partner?.mood?.text ? (
+                  <>
+                    <Text style={styles.moodEmoji}>{partner.mood?.emoji ?? '💭'}</Text>
+                    <Text style={styles.moodText} numberOfLines={1}>{partner.mood?.text || 'Status'}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.moodPlaceholder}>—</Text>
+                )}
               </View>
-            ) : null}
-            <Pressable
-              style={({ pressed }) => [styles.moodPill, styles.moodPillSelf, pressed && styles.moodPillPressed]}
-              onPress={() => setMoodModalVisible(true)}
-            >
-              {user?.mood?.emoji != null || user?.mood?.text ? (
-                <>
-                  <Text style={styles.moodEmoji}>{user.mood?.emoji ?? '💭'}</Text>
-                  <Text style={styles.moodText} numberOfLines={1}>{user.mood?.text || 'Status'}</Text>
-                </>
-              ) : (
-                <Text style={styles.moodSetStatus}>+ Set Status</Text>
-              )}
-            </Pressable>
+            </View>
+            <View style={styles.moodColumn}>
+              <Text style={styles.moodColumnLabel}>ME</Text>
+              <Pressable
+                style={({ pressed }) => [styles.moodPillSelf, pressed && styles.moodPillPressed]}
+                onPress={() => setMoodModalVisible(true)}
+              >
+                {user?.mood?.emoji != null || user?.mood?.text ? (
+                  <>
+                    <Text style={styles.moodEmoji}>{user.mood?.emoji ?? '💭'}</Text>
+                    <Text style={styles.moodText} numberOfLines={1}>{user.mood?.text || 'Status'}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.moodSetStatus}>+ Set Status</Text>
+                )}
+                <Ionicons name="pencil" size={12} color={colors.textMuted} style={styles.moodPencilIcon} />
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -369,12 +381,24 @@ const styles = StyleSheet.create({
   },
   moodRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 10,
-    marginTop: 12,
+    alignItems: 'flex-start',
+    gap: 28,
+    marginTop: 14,
   },
-  moodPill: {
+  moodColumn: {
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  moodColumnLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.text,
+    opacity: 0.7,
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  moodPillPartner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -389,7 +413,22 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   moodPillSelf: {
-    backgroundColor: colors.blush,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 248, 245, 0.95)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingRight: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.blushDark,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 2,
   },
   moodPillPressed: {
     opacity: 0.9,
@@ -401,12 +440,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    maxWidth: 100,
+    maxWidth: 88,
+  },
+  moodPlaceholder: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textMuted,
   },
   moodSetStatus: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.textMuted,
+  },
+  moodPencilIcon: {
+    marginLeft: 4,
+    opacity: 0.8,
   },
   partnerTimeRow: {
     flexDirection: 'row',
