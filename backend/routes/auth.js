@@ -44,7 +44,11 @@ async function verifyGoogleToken(identityToken) {
 
 router.get('/me', requireAuth, async (req, res) => {
   try {
-    const user = req.user;
+    // requireAuth already loads user from DB; re-verify so /me explicitly fails if user was deleted
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     res.json({
       user: {
         id: user._id,

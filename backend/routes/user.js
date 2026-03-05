@@ -12,18 +12,53 @@ router.get('/partner', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'No partner linked' });
     }
     const partner = await User.findById(partnerId)
-      .select('name email')
+      .select('name email location')
       .lean();
     if (!partner) {
       return res.status(404).json({ error: 'Partner not found' });
     }
+    const coords = partner.location?.coords?.coordinates;
+    const location =
+      partner.location && coords && coords.length >= 2
+        ? {
+            city: partner.location.city || undefined,
+            lat: coords[1],
+            lng: coords[0],
+          }
+        : undefined;
     res.json({
       partner: {
         id: partner._id,
         name: partner.name || undefined,
         email: partner.email || undefined,
+        location,
       },
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** PUT /api/user/location — update current user's location (city + coords). */
+router.put('/location', requireAuth, async (req, res) => {
+  try {
+    const { city, lat, lng } = req.body;
+    const hasCoords =
+      typeof lat === 'number' &&
+      typeof lng === 'number' &&
+      !Number.isNaN(lat) &&
+      !Number.isNaN(lng);
+    if (!hasCoords) {
+      return res.status(400).json({ error: 'lat and lng are required numbers' });
+    }
+    req.user.location = req.user.location || {};
+    req.user.location.city = typeof city === 'string' ? city.trim() || null : null;
+    req.user.location.coords = {
+      type: 'Point',
+      coordinates: [lng, lat],
+    };
+    await req.user.save();
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

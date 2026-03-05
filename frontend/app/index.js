@@ -6,33 +6,27 @@ import { colors } from '../src/theme/colors';
 
 export default function Index() {
   const router = useRouter();
-  const { token, partnerId, hydrated, refreshUser } = useAuthStore();
+  const { user, token, partnerId, sessionVerified } = useAuthStore();
   const guardDone = useRef(false);
 
   useEffect(() => {
-    if (!hydrated || guardDone.current) return;
-    let cancelled = false;
+    if (!sessionVerified || guardDone.current) return;
+    guardDone.current = true;
 
-    (async () => {
-      if (!token) {
-        router.replace('/auth');
-        guardDone.current = true;
-        return;
-      }
-      await refreshUser();
-      if (cancelled) return;
-      const state = useAuthStore.getState();
-      const u = state.user;
-      const p = state.partnerId;
-      guardDone.current = true;
-      if (!u) router.replace('/auth');
-      else if (!u.name) router.replace('/profile');
-      else if (p == null) router.replace('/pair');
-      else router.replace('/home');
-    })();
-
-    return () => { cancelled = true; };
-  }, [hydrated, token, router, refreshUser]);
+    if (!token || !user) {
+      router.replace('/auth');
+      return;
+    }
+    if (!user.name) {
+      router.replace('/profile');
+      return;
+    }
+    if (partnerId == null) {
+      router.replace('/pair');
+      return;
+    }
+    router.replace('/home');
+  }, [sessionVerified, token, user, partnerId, router]);
 
   return (
     <View style={styles.centered}>

@@ -22,7 +22,8 @@ export function setApiLogout(logoutFn) {
   api.interceptors.response.use(
     (res) => res,
     (err) => {
-      if (err.response?.status === 401 && typeof logoutFn === 'function') logoutFn();
+      const status = err.response?.status;
+      if ((status === 401 || status === 404) && typeof logoutFn === 'function') logoutFn();
       return Promise.reject(err);
     }
   );
@@ -40,10 +41,15 @@ export async function updateProfile({ name }) {
   return data;
 }
 
-/** GET /api/user/partner — fetch partner profile (name, etc.). */
+/** GET /api/user/partner — fetch partner profile (name, location, etc.). */
 export async function getPartner() {
   const { data } = await api.get('/user/partner');
   return data;
+}
+
+/** PUT /api/user/location — update current user location (city, lat, lng). */
+export async function updateLocation({ city, lat, lng }) {
+  await api.put('/user/location', { city, lat, lng });
 }
 
 /** POST /api/couple/pair/generate — generate 6-digit pairing code. */

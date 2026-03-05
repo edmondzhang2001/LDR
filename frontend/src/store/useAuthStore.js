@@ -16,11 +16,12 @@ function normalizeUser(dataUser) {
 }
 
 export const useAuthStore = create((set, get) => {
+  /** Clears all auth state and stored tokens; use when session is invalid or user logs out. */
   const logout = () => {
     setApiToken(null);
     SecureStore.deleteItemAsync(TOKEN_KEY);
     SecureStore.deleteItemAsync(USER_KEY);
-    set({ token: null, user: null, partnerId: null, partner: null, hydrated: true });
+    set({ token: null, user: null, partnerId: null, partner: null, hydrated: true, sessionVerified: true });
   };
 
   setApiLogout(logout);
@@ -31,6 +32,10 @@ export const useAuthStore = create((set, get) => {
     partnerId: null,
     partner: null,
     hydrated: false,
+    /** True until initAuth() has finished (success or fail). Blocks routing until backend verification is done. */
+    isAuthLoading: true,
+    /** True after initAuth has run (session verified with backend or confirmed no token). */
+    sessionVerified: false,
 
     setPartnerId: (partnerId) => set((state) => {
       const user = state.user ? { ...state.user, partnerId } : null;
@@ -61,6 +66,38 @@ export const useAuthStore = create((set, get) => {
         return user;
       } catch {
         return null;
+      }
+    },
+
+    /**
+     * Run once on app mount: hydrate from storage, then verify session with GET /api/auth/me.
+     * On 401/404 (invalid or missing user), calls logout() to clear stale local state.
+     * Sets sessionVerified when done so the routing guard can run. Always sets isAuthLoading: false in finally.
+     */
+    initAuth: async () => {
+      try {
+        if (!get().hydrated) await get().hydrate();
+        const { token } = get();
+        if (!token) {
+          set({ sessionVerified: true });
+          return;
+        }
+        try {
+          const data = await getMe();
+          const user = normalizeUser(data.user);
+          if (user) {
+            await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+            set({ user, partnerId: user.partnerId ?? null, sessionVerified: true });
+          } else {
+            set({ sessionVerified: true });
+          }
+        } catch (e) {
+          const status = e.response?.status;
+          if (status === 401 || status === 404) logout();
+          else set({ sessionVerified: true });
+        }
+      } finally {
+        set({ isAuthLoading: false });
       }
     },
 
@@ -103,6 +140,7 @@ export const useAuthStore = create((set, get) => {
               id: data.partner.id,
               name: data.partner.name ?? undefined,
               email: data.partner.email ?? undefined,
+              location: data.partner.location,
             }
           : null;
         set({ partner });

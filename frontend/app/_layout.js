@@ -1,14 +1,45 @@
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../src/store/useAuthStore';
+import { colors } from '../src/theme/colors';
+
+function SplashScreen() {
+  return (
+    <View style={styles.splash}>
+      <ActivityIndicator size="large" color={colors.blushDark} />
+    </View>
+  );
+}
 
 export default function RootLayout() {
-  const hydrate = useAuthStore((s) => s.hydrate);
+  const router = useRouter();
+  const initAuth = useAuthStore((s) => s.initAuth);
+  const isAuthLoading = useAuthStore((s) => s.isAuthLoading);
+  const sessionVerified = useAuthStore((s) => s.sessionVerified);
+  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
-    hydrate();
-  }, [hydrate]);
+    initAuth();
+  }, [initAuth]);
+
+  // Only run redirect after auth has finished loading; then send to login if no valid session
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (!sessionVerified) return;
+    if (!token || !user) router.replace('/auth');
+  }, [isAuthLoading, sessionVerified, token, user, router]);
+
+  if (isAuthLoading) {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <SplashScreen />
+      </>
+    );
+  }
 
   return (
     <>
@@ -23,3 +54,12 @@ export default function RootLayout() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
