@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, AppState } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as Battery from 'expo-battery';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { Card } from '../src/components/Card';
 import { PartnerStatsCard } from '../src/components/PartnerStatsCard';
 import { ReunionCard } from '../src/components/ReunionCard';
-import { updateLocation, updateBattery } from '../src/lib/api';
-import { colors } from '../src/theme/colors';
+import { BackgroundSlideshow } from '../src/components/BackgroundSlideshow';
+import { updateLocation, updateBattery, getPresignedPhotoUrl } from '../src/lib/api';
+import { colors, glassTextShadow } from '../src/theme/colors';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, partnerId, partner, fetchPartner, refreshUser, logout, saveReunion, endReunion } = useAuthStore();
+  const { user, partnerId, partner, fetchPartner, refreshUser, logout, saveReunion, endReunion, addPhotoAfterUpload } = useAuthStore();
   const [myLocation, setMyLocation] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   // Level 1 sync: when app comes to foreground, silently fetch latest partner + current user data
   useEffect(() => {
@@ -95,48 +98,160 @@ export default function HomeScreen() {
     };
   }, []);
 
+  const userPhotos = user?.photos ?? [];
+  const partnerPhotos = partner?.photos ?? [];
+  const slideshowPhotos = [...userPhotos, ...partnerPhotos].filter((p) => p?.url);
+  const isImmersiveMode = slideshowPhotos.length > 0;
+
+  const uploadImageUri = async (uri) => {
+    setPhotoUploading(true);
+    try {
+      // 1. Get the pre-signed URL and final URL from our backend
+      const { url: presignedUrl, finalUrl } = await getPresignedPhotoUrl();
+      if (!presignedUrl || !finalUrl) {
+        throw new Error('Backend did not return presigned URL or final URL');
+      }
+
+      // 2. Convert the local Expo image URI to a raw Blob
+      const imageResponse = await fetch(uri);
+      if (!imageResponse.ok) {
+        throw new Error('Failed to read local image: ' + imageResponse.status + ' ' + imageResponse.statusText);
+      }
+      const imageBlob = await imageResponse.blob();
+      if (!imageBlob || imageBlob.size === 0) {
+        throw new Error('Local image blob is empty');
+      }
+
+      // 3. Upload directly to S3
+      const s3Response = await fetch(presignedUrl, {
+        method: 'PUT',
+        body: imageBlob,
+        headers: {
+          'Content-Type': 'image/jpeg',
+        },
+      });
+
+      if (!s3Response.ok) {
+        const errText = await s3Response.text().catch(() => s3Response.statusText);
+        throw new Error('S3 upload failed: ' + s3Response.status + ' ' + (errText || s3Response.statusText));
+      }
+
+      // 4. Save the final URL to our backend / MongoDB
+      await addPhotoAfterUpload(finalUrl);
+    } catch (e) {
+      console.error('[Daily Story upload]', e?.message || e);
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const handleCameraPress = () => {
+    Alert.alert(
+      'Upload Photo',
+      'Take a Picture or Choose from Gallery?',
+      [
+        {
+          text: 'Gallery',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') return;
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 0.5,
+              allowsEditing: false,
+            });
+            if (result.canceled || !result.assets?.[0]?.uri) return;
+            await uploadImageUri(result.assets[0].uri);
+          },
+        },
+        {
+          text: 'Camera',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') return;
+            const result = await ImagePicker.launchCameraAsync({
+              quality: 0.5,
+              allowsEditing: false,
+            });
+            if (result.canceled || !result.assets?.[0]?.uri) return;
+            await uploadImageUri(result.assets[0].uri);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
   if (!user || partnerId == null) return null;
 
   const partnerName = partner?.name || 'your partner';
+  const ts = (s) => (isImmersiveMode ? [s, glassTextShadow] : s);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <View style={styles.iconWrap}>
-          <Ionicons name="heart" size={40} color={colors.blushDark} />
-        </View>
-        <Text style={styles.connectedTitle}>Connected with {partnerName}</Text>
-      </View>
-
-      <View style={styles.cards}>
-        <Card style={styles.placeholderCard}>
-          <View style={styles.placeholderIconWrap}>
-            <Ionicons name="image-outline" size={32} color={colors.blushDark} />
+    <View style={styles.container}>
+      {isImmersiveMode && (
+        <BackgroundSlideshow userPhotos={userPhotos} partnerPhotos={partnerPhotos} />
+      )}
+      <ScrollView
+        style={[styles.scrollView, isImmersiveMode && styles.scrollViewImmersive]}
+        contentContainerStyle={[styles.scroll, isImmersiveMode && styles.scrollImmersive]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View style={[styles.iconWrap, isImmersiveMode && styles.iconWrapGlass]}>
+            <Ionicons name="heart" size={40} color={colors.blushDark} />
           </View>
-          <Text style={styles.placeholderTitle}>Recent Photo</Text>
-          <Text style={styles.placeholderSubtitle}>Latest from your partner — coming soon</Text>
-        </Card>
+          <Text style={ts(styles.connectedTitle)}>Connected with {partnerName}</Text>
+        </View>
 
-        <PartnerStatsCard partner={partner} myLocation={myLocation} />
+        <View style={styles.cards}>
+          <Card style={styles.placeholderCard} glass={isImmersiveMode}>
+            <View style={styles.placeholderIconWrap}>
+              <Ionicons name="image-outline" size={32} color={colors.blushDark} />
+            </View>
+            <Text style={ts(styles.placeholderTitle)}>Daily Story</Text>
+            <Text style={ts(styles.placeholderSubtitle)}>
+              {slideshowPhotos.length > 0 ? 'Your photos are on the background' : 'Take a photo to start'}
+            </Text>
+          </Card>
 
-        <ReunionCard
-          reunion={user.reunion}
-          saveReunion={saveReunion}
-          endReunion={endReunion}
-        />
+          <PartnerStatsCard partner={partner} myLocation={myLocation} glass={isImmersiveMode} />
 
-        <Pressable style={({ pressed }) => [styles.signOutButton, pressed && styles.signOutButtonPressed]} onPress={logout}>
-          <Ionicons name="log-out-outline" size={20} color={colors.textMuted} />
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+          <ReunionCard
+            reunion={user.reunion}
+            saveReunion={saveReunion}
+            endReunion={endReunion}
+            glass={isImmersiveMode}
+          />
+
+          <Pressable style={({ pressed }) => [styles.signOutButton, pressed && styles.signOutButtonPressed]} onPress={logout}>
+            <Ionicons name="log-out-outline" size={20} color={colors.textMuted} />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+
+      <Pressable
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+        onPress={handleCameraPress}
+        disabled={photoUploading}
+      >
+        {photoUploading ? (
+          <ActivityIndicator size="small" color={colors.white} />
+        ) : (
+          <Ionicons name="camera" size={28} color={colors.white} />
+        )}
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { paddingHorizontal: 24, paddingTop: 56, paddingBottom: 40 },
+  scrollView: { flex: 1 },
+  scrollViewImmersive: { backgroundColor: 'transparent' },
+  scroll: { paddingHorizontal: 24, paddingTop: 56, paddingBottom: 100 },
+  scrollImmersive: { backgroundColor: 'transparent' },
   header: {
     alignItems: 'center',
     marginBottom: 32,
@@ -154,6 +269,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 16,
     elevation: 6,
+  },
+  iconWrapGlass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   connectedTitle: {
     fontSize: 22,
@@ -214,5 +332,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.textMuted,
+  },
+  fab: {
+    position: 'absolute',
+    right: 24,
+    bottom: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.blushDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  fabPressed: {
+    opacity: 0.9,
   },
 });

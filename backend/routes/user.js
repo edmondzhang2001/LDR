@@ -12,7 +12,7 @@ router.get('/partner', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'No partner linked' });
     }
     const partner = await User.findById(partnerId)
-      .select('name email location batteryLevel lastUpdatedDataAt reunion')
+      .select('name email location batteryLevel lastUpdatedDataAt reunion photos')
       .lean();
     if (!partner) {
       return res.status(404).json({ error: 'Partner not found' });
@@ -26,6 +26,10 @@ router.get('/partner', requireAuth, async (req, res) => {
             lng: coords[0],
           }
         : undefined;
+    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const partnerPhotos = (partner.photos || [])
+      .filter((p) => new Date(p.createdAt) >= cutoff24h)
+      .map((p) => ({ url: p.url, createdAt: new Date(p.createdAt).toISOString() }));
     res.json({
       partner: {
         id: partner._id,
@@ -46,8 +50,29 @@ router.get('/partner', requireAuth, async (req, res) => {
                   : null,
               }
             : null,
+        photos: partnerPhotos,
       },
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/user/photo — add a photo URL to the user's Daily Story (after S3 upload). */
+router.post('/photo', requireAuth, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      return res.status(400).json({ error: 'url is required' });
+    }
+    req.user.photos = req.user.photos || [];
+    req.user.photos.push({ url: url.trim(), createdAt: new Date() });
+    await req.user.save();
+    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const photos = (req.user.photos || [])
+      .filter((p) => new Date(p.createdAt) >= cutoff24h)
+      .map((p) => ({ url: p.url, createdAt: p.createdAt.toISOString() }));
+    res.json({ photos });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -10,8 +10,10 @@ const SHADOW = {
   elevation: 6,
 };
 
-export function Card({ children, style }) {
-  return <View style={[styles.card, style]}>{children}</View>;
+export function Card({ children, style, glass }) {
+  return (
+    <View style={[styles.card, glass && styles.cardGlass, style]}>{children}</View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -20,5 +22,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS,
     padding: 24,
     ...SHADOW,
+  },
+  cardGlass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
 });

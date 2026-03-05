@@ -82,3 +82,15 @@ export async function saveReunion(startDate, endDate) {
 export async function endReunion() {
   await api.delete('/reunion');
 }
+
+/** GET /api/photo/presigned-url — get presigned PUT URL and finalUrl for Daily Story upload. */
+export async function getPresignedPhotoUrl() {
+  const { data } = await api.get('/photo/presigned-url');
+  return data;
+}
+
+/** POST /api/user/photo — register photo URL after S3 upload (Daily Story). */
+export async function addUserPhoto(url) {
+  const { data } = await api.post('/user/photo', { url });
+  return data;
+}

@@ -13,3 +13,10 @@ export const colors = {
   shadow: 'rgba(92, 74, 74, 0.08)',
   shadowStrong: 'rgba(92, 74, 74, 0.12)',
 };
+
+/** Soft text shadow for readability on photo backgrounds (glass/immersive mode). */
+export const glassTextShadow = {
+  textShadowColor: 'rgba(0, 0, 0, 0.35)',
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 4,
+};

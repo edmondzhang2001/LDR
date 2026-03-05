@@ -60,6 +60,12 @@ const userSchema = new mongoose.Schema(
       startDate: { type: Date, default: null },
       endDate: { type: Date, default: null },
     },
+    photos: [
+      {
+        url: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     pairingCode: {
       type: String,
       default: null,

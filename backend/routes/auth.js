@@ -58,6 +58,10 @@ router.get('/me', requireAuth, async (req, res) => {
               : null,
           }
         : null;
+    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const photos = (user.photos || [])
+      .filter((p) => new Date(p.createdAt) >= cutoff24h)
+      .map((p) => ({ url: p.url, createdAt: p.createdAt.toISOString() }));
     res.json({
       user: {
         id: user._id,
@@ -65,6 +69,7 @@ router.get('/me', requireAuth, async (req, res) => {
         name: user.name || undefined,
         partnerId: user.partnerId ?? null,
         reunion,
+        photos,
       },
     });
   } catch (err) {

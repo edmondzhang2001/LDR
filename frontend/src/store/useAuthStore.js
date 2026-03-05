@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion } from '../lib/api';
+import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto } from '../lib/api';
 
 const TOKEN_KEY = 'ldr_token';
 const USER_KEY = 'ldr_user';
@@ -13,6 +13,7 @@ function normalizeUser(dataUser) {
     name: dataUser.name ?? undefined,
     partnerId: dataUser.partnerId ?? null,
     reunion: dataUser.reunion ?? null,
+    photos: Array.isArray(dataUser.photos) ? dataUser.photos : [],
   };
 }
 
@@ -153,6 +154,7 @@ export const useAuthStore = create((set, get) => {
               batteryLevel: data.partner.batteryLevel ?? null,
               lastUpdatedDataAt: data.partner.lastUpdatedDataAt ?? null,
               reunion: normalizeReunion(data.partner.reunion),
+              photos: Array.isArray(data.partner.photos) ? data.partner.photos : [],
             }
           : null;
         set({ partner });
@@ -193,6 +195,15 @@ export const useAuthStore = create((set, get) => {
       }));
       const { user } = get();
       if (user) SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+    },
+
+    /** Register a photo URL after S3 upload; updates user.photos in store. */
+    addPhotoAfterUpload: async (finalUrl) => {
+      const data = await addUserPhoto(finalUrl);
+      set((state) => ({
+        user: state.user ? { ...state.user, photos: data.photos ?? [] } : null,
+      }));
+      return data.photos;
     },
 
     logout,

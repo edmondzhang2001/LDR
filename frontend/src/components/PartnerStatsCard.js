@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from './Card';
-import { colors } from '../theme/colors';
+import { colors, glassTextShadow } from '../theme/colors';
 import { fetchWeatherAt, weatherIconToIonicons } from '../utils/weather';
 import { calculateDistance } from '../utils/distance';
 import { formatRelativeTime } from '../utils/relativeTime';
 
 const RADIUS = 24;
 
-export function PartnerStatsCard({ partner, myLocation }) {
+export function PartnerStatsCard({ partner, myLocation, glass }) {
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [, setTick] = useState(0);
@@ -76,13 +76,14 @@ export function PartnerStatsCard({ partner, myLocation }) {
           ? colors.text
           : colors.blushDark;
   const relativeTime = lastUpdated ? formatRelativeTime(lastUpdated) : '';
+  const ts = (s) => (glass ? [s, glassTextShadow] : s);
 
   return (
-    <Card style={styles.card}>
+    <Card style={styles.card} glass={glass}>
       {/* Top: Partner's city with location pin */}
       <View style={styles.row}>
         <Ionicons name="location" size={20} color={colors.blushDark} />
-        <Text style={styles.city} numberOfLines={1}>
+        <Text style={ts(styles.city)} numberOfLines={1}>
           {cityName}
         </Text>
       </View>
@@ -91,11 +92,11 @@ export function PartnerStatsCard({ partner, myLocation }) {
       {showBatteryRow ? (
         <View style={styles.batteryRow}>
           <Ionicons name={batteryIcon} size={22} color={batteryColor} />
-          <Text style={styles.batteryPct}>
+          <Text style={ts(styles.batteryPct)}>
             {batteryPct != null ? `${batteryPct}%` : '—'}
           </Text>
           {relativeTime ? (
-            <Text style={styles.batteryUpdated}>Updated {relativeTime}</Text>
+            <Text style={ts(styles.batteryUpdated)}>Updated {relativeTime}</Text>
           ) : null}
         </View>
       ) : null}
@@ -105,29 +106,29 @@ export function PartnerStatsCard({ partner, myLocation }) {
         {isLoading ? (
           <View style={styles.skeletonRow}>
             <ActivityIndicator size="small" color={colors.skyDark} />
-            <Text style={styles.skeletonText}>Loading weather…</Text>
+            <Text style={ts(styles.skeletonText)}>Loading weather…</Text>
           </View>
         ) : weather ? (
           <>
             <View style={styles.tempRow}>
               <Ionicons name={weatherIcon} size={36} color={colors.skyDark} />
-              <Text style={styles.temp}>{weather.tempFormatted}</Text>
+              <Text style={ts(styles.temp)}>{weather.tempFormatted}</Text>
             </View>
-            <Text style={styles.description} numberOfLines={1}>
+            <Text style={ts(styles.description)} numberOfLines={1}>
               {weather.description}
             </Text>
           </>
         ) : hasPartnerCoords ? (
-          <Text style={styles.noWeather}>Weather unavailable</Text>
+          <Text style={ts(styles.noWeather)}>Weather unavailable</Text>
         ) : (
-          <Text style={styles.noWeather}>Partner hasn’t shared location</Text>
+          <Text style={ts(styles.noWeather)}>Partner hasn’t shared location</Text>
         )}
       </View>
 
       {/* Bottom: Distance pill */}
       <View style={styles.pillWrap}>
         <View style={styles.pill}>
-          <Text style={styles.pillText}>
+          <Text style={ts(styles.pillText)}>
             📍 {distanceKm != null ? `${distanceKm} km away` : '— km away'}
           </Text>
         </View>
