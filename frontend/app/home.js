@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert, Modal, TextInput, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert, Modal, TextInput, Image, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as Battery from 'expo-battery';
@@ -27,7 +27,17 @@ export default function HomeScreen() {
   const [moodModalVisible, setMoodModalVisible] = useState(false);
   const [uploadPreviewUri, setUploadPreviewUri] = useState(null);
   const [uploadCaption, setUploadCaption] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const CAPTION_MAX = 60;
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refreshUser(), fetchPartner()]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const partnerTime = usePartnerTime(partner?.timezone);
 
@@ -249,7 +259,19 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.blushDark}
+            colors={[colors.blushDark]}
+          />
+        }
+      >
         <View style={styles.header}>
           <View style={styles.iconWrap}>
             <Ionicons name="heart" size={40} color={colors.blushDark} />

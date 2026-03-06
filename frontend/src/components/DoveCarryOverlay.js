@@ -8,8 +8,9 @@ const { width: WINDOW_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 const POSTCARD_WIDTH = Math.min(WINDOW_WIDTH * 0.72, 320);
 const POSTCARD_HEIGHT = POSTCARD_WIDTH * (3 / 4);
 const DOVE_SIZE = 52;
-const FLY_OFF_TARGET_X = WINDOW_WIDTH * 0.55;
-const FLY_OFF_TARGET_Y = -WINDOW_HEIGHT * 0.55;
+/** Fly well beyond the screen so dove + postcard exit completely (top-right). */
+const FLY_OFF_TARGET_X = WINDOW_WIDTH + 150;
+const FLY_OFF_TARGET_Y = -WINDOW_HEIGHT - 150;
 const WOBBLE_DEG = 8;
 
 /**
@@ -85,7 +86,7 @@ export function DoveCarryOverlay({
 
     // Phase 3: After dove visible, move dove to "grab" (above postcard), then fly off
     const grabDuration = 400;
-    const flyDuration = 1400;
+    const flyDuration = 1100; // smooth 800–1200 ms for full fly-off
     const grabStart = 900; // ms from overlay show
 
     const moveDoveToGrab = Animated.delay(grabStart);
