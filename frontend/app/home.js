@@ -275,7 +275,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <PostcardStack partnerPhotos={partnerPhotos} />
+        <PostcardStack partnerPhotos={partnerPhotos} partnerCity={cityName} />
 
         <View style={styles.cards}>
           {/* Row 1: Location (left) + Weather (right) */}
