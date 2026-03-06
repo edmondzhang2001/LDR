@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, PanResponder, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -110,17 +110,17 @@ function seeded(seed) {
   return x - Math.floor(x);
 }
 
+function getStackLayout(maxDepth) {
+  return Array.from({ length: Math.max(0, maxDepth) }, (_, i) => ({
+    rotation: -4 + seeded(i * 3) * 8,
+    offsetX: (seeded(i * 7) - 0.5) * 16,
+    offsetY: (seeded(i * 11) - 0.5) * 20,
+    scale: Math.max(0.92, 1 - (i + 1) * 0.025),
+  }));
+}
+
 function useStackLayout(maxDepth) {
-  return useMemo(
-    () =>
-      Array.from({ length: Math.max(0, maxDepth) }, (_, i) => ({
-        rotation: -4 + seeded(i * 3) * 8,
-        offsetX: (seeded(i * 7) - 0.5) * 16,
-        offsetY: (seeded(i * 11) - 0.5) * 20,
-        scale: Math.max(0.92, 1 - (i + 1) * 0.025),
-      })),
-    [maxDepth]
-  );
+  return useMemo(() => getStackLayout(maxDepth), [maxDepth]);
 }
 
 function formatStampDate(createdAt) {
@@ -138,8 +138,18 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
   );
 
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isResetting, setIsResetting] = useState(false);
+  const [dropIndex, setDropIndex] = useState(-1);
   const pan = useRef(new Animated.ValueXY()).current;
   const photosLengthRef = useRef(0);
+  const activeIndexRef = useRef(activeIndex);
+  const dropValuesRef = useRef(null);
+  const dropRotationsRef = useRef(null);
+
+  const triggerOneAtATimeReset = () => {
+    setIsResetting(true);
+    setActiveIndex(0);
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -157,7 +167,13 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
           }).start(() => {
             pan.setValue({ x: 0, y: 0 });
             const len = photosLengthRef.current;
-            setActiveIndex((prev) => (prev + 1 >= len ? 0 : prev + 1));
+            const currentIndex = activeIndexRef.current;
+            const wasLastCard = currentIndex === len - 1;
+            if (wasLastCard) {
+              triggerOneAtATimeReset();
+            } else {
+              setActiveIndex((prev) => prev + 1);
+            }
           });
         } else {
           Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 8, tension: 80 }).start();
@@ -166,7 +182,62 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
     })
   ).current;
 
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
+
   const n = photos.length;
+
+  // Cascade drop: when reset just happened (activeIndex 0, isResetting), animate each card down one-by-one
+  useEffect(() => {
+    if (!isResetting || activeIndex !== 0 || n < 2) return;
+    const layout = getStackLayout(n - 1);
+    dropValuesRef.current = Array.from({ length: n }, () => new Animated.ValueXY({ x: 0, y: -380 }));
+    dropRotationsRef.current = Array.from({ length: n }, () => new Animated.Value(90));
+    setDropIndex(0);
+
+    const CASCADE_DELAY = 220;
+    const timeouts = [];
+
+    for (let i = 0; i < n; i++) {
+      const delay = i * CASCADE_DELAY;
+      const toX = i === 0 ? 0 : layout[i - 1].offsetX;
+      const toY = i === 0 ? 0 : layout[i - 1].offsetY;
+      const toRotation = i === 0 ? 0 : layout[i - 1].rotation;
+      const valXY = dropValuesRef.current[i];
+      const valRot = dropRotationsRef.current[i];
+
+      timeouts.push(
+        setTimeout(() => {
+          setDropIndex(i);
+          Animated.parallel([
+            Animated.spring(valXY, {
+              toValue: { x: toX, y: toY },
+              friction: 12,
+              tension: 80,
+              useNativeDriver: false,
+            }),
+            Animated.spring(valRot, {
+              toValue: toRotation,
+              friction: 10,
+              tension: 60,
+              useNativeDriver: false,
+            }),
+          ]).start(() => {
+            if (i === n - 1) {
+              setDropIndex(-1);
+              setIsResetting(false);
+              dropValuesRef.current = null;
+              dropRotationsRef.current = null;
+            }
+          });
+        }, delay)
+      );
+    }
+
+    return () => timeouts.forEach((t) => clearTimeout(t));
+  }, [isResetting, activeIndex, n]);
+
   photosLengthRef.current = n;
   const remaining = n - activeIndex;
   const visibleSlice = photos.slice(activeIndex);
@@ -195,6 +266,8 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
     );
   }
 
+  const isDropMode = isResetting && dropValuesRef.current && dropValuesRef.current.length === visibleSlice.length;
+
   return (
     <View style={styles.stackContainer}>
       {visibleSlice.map((photo, sliceIndex) => {
@@ -217,6 +290,31 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
           </>
         );
 
+        if (isDropMode) {
+          const dropVal = dropValuesRef.current[sliceIndex];
+          const dropRot = dropRotationsRef.current[sliceIndex];
+          const dropRotateStr = dropRot.interpolate({
+            inputRange: [-15, 90],
+            outputRange: ['-15deg', '90deg'],
+          });
+          const dropLayout = sliceIndex === 0 ? null : stackLayout[sliceIndex - 1];
+          const dropScale = dropLayout ? dropLayout.scale : 1;
+          return (
+            <Animated.View
+              key={photo.url + globalIndex}
+              style={[
+                styles.postcard,
+                {
+                  zIndex: sliceIndex,
+                  transform: [...dropVal.getTranslateTransform(), { rotate: dropRotateStr }, { scale: dropScale }],
+                },
+              ]}
+            >
+              <FrameComponent>{cardContent}</FrameComponent>
+            </Animated.View>
+          );
+        }
+
         if (isTop) {
           const canSwipe = n > 1;
           if (canSwipe) {
@@ -230,7 +328,7 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
                     transform: [{ translateX: pan.x }, { translateY: pan.y }, { rotate: rotateInterpolate }],
                   },
                 ]}
-                {...panResponder.panHandlers}
+                {...(canSwipe && !isResetting ? panResponder.panHandlers : {})}
               >
                 <FrameComponent>{cardContent}</FrameComponent>
               </Animated.View>
