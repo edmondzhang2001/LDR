@@ -1,22 +1,27 @@
 import { useRef, useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, PanResponder, Image } from 'react-native';
+import { View, Text, StyleSheet, Animated, PanResponder, Image, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const STACK_WIDTH = Math.min(SCREEN_WIDTH * 0.6, 400);
+const STACK_HEIGHT = Math.min(SCREEN_HEIGHT * 0.4, 420);
 
 const SWIPE_THRESHOLD = 120;
 const TAP_MAX_MOVEMENT = 20;
 const FLY_OFF_DISTANCE = 400;
-const STAMP_COLOR = '#6B5B52';
-const FRAME_RADIUS = 24;
-const INNER_RADIUS = 12;
-const FRAME_PADDING = 12;
-const FRAME_CHIN = 40;
+const STAMP_COLOR = '#2C2C2C';
+const FRAME_RADIUS = 20;
+const INNER_RADIUS = 10;
+const FRAME_PADDING = 14;
+const FRAME_CHIN = 44;
+const BORDER_PINK = '#F5D0D0';
 
 const PINK_STRIPE = '#F5D0D0';
 const CREAM_STRIPE = '#FFFBF5';
 
-function getPresetIndexForCard(globalIndex) {
-  return globalIndex % 4;
+function getPresetIndexForCard(globalIndex, isTopCard) {
+  return isTopCard ? 0 : (globalIndex % 4) + 1;
 }
 
 /** Candy Stripes: solid cream bg + diagonal pink stripes via rotated View rectangles. */
@@ -104,7 +109,16 @@ function PolkaDotsFrame({ style, children }) {
   );
 }
 
-const FRAME_COMPONENTS = [CandyStripesFrame, HeartFrame, GradientAuraFrame, PolkaDotsFrame];
+/** Clean white polaroid frame with no pattern - for the main active card. */
+function WhitePolaroidFrame({ style, children }) {
+  return (
+    <View style={[styles.frameRoot, styles.frameOpaque, styles.whitePolaroidBg, style]}>
+      <View style={styles.frameChin}>{children}</View>
+    </View>
+  );
+}
+
+const FRAME_COMPONENTS = [WhitePolaroidFrame, CandyStripesFrame, HeartFrame, GradientAuraFrame, PolkaDotsFrame];
 
 function seeded(seed) {
   const x = Math.sin(seed) * 10000;
@@ -113,10 +127,10 @@ function seeded(seed) {
 
 function getStackLayout(maxDepth) {
   return Array.from({ length: Math.max(0, maxDepth) }, (_, i) => ({
-    rotation: -4 + seeded(i * 3) * 8,
-    offsetX: (seeded(i * 7) - 0.5) * 16,
-    offsetY: (seeded(i * 11) - 0.5) * 20,
-    scale: Math.max(0.92, 1 - (i + 1) * 0.025),
+    rotation: -3 + seeded(i * 3) * 6,
+    offsetX: (seeded(i * 7) - 0.5) * 72,
+    offsetY: (seeded(i * 11) - 0.5) * 12,
+    scale: Math.max(0.88, 1 - (i + 1) * 0.04),
   }));
 }
 
@@ -129,7 +143,7 @@ function formatStampDate(createdAt) {
   return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' }).format(new Date(createdAt));
 }
 
-export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFirstName = '' }) {
+export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFirstName = '' }) {
   const photos = useMemo(
     () =>
       (partnerPhotos ?? [])
@@ -275,7 +289,7 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
     const DefaultFrame = FRAME_COMPONENTS[0];
     return (
       <View style={styles.stackContainer}>
-        <View style={styles.postcard}>
+        <View style={styles.polaroidOuter}>
           <DefaultFrame>
             <View style={styles.placeholderInner}>
               <Ionicons name="image-outline" size={48} color={colors.blushDark} />
@@ -297,7 +311,7 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
         const isTop = sliceIndex === 0;
         const globalIndex = activeIndex + sliceIndex;
         const layout = !isTop ? stackLayout[sliceIndex - 1] : null;
-        const presetIndex = getPresetIndexForCard(globalIndex);
+        const presetIndex = getPresetIndexForCard(globalIndex, isTop);
         const FrameComponent = FRAME_COMPONENTS[presetIndex];
 
         const stampText =
@@ -306,8 +320,8 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
             : [formatStampDate(photo.createdAt), partnerCity].filter(Boolean).join(' • ') || '—';
         const cardContent = (
           <>
-            <View style={styles.postcardInner}>
-              <Image source={{ uri: photo.url }} style={styles.postcardImage} resizeMode="cover" />
+            <View style={styles.polaroidInner}>
+              <Image source={{ uri: photo.url }} style={styles.polaroidImage} resizeMode="cover" />
             </View>
             <Text style={styles.stamp} numberOfLines={2}>{stampText}</Text>
           </>
@@ -322,69 +336,69 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
           });
           const dropLayout = sliceIndex === 0 ? null : stackLayout[sliceIndex - 1];
           const dropScale = dropLayout ? dropLayout.scale : 1;
-          return (
-            <Animated.View
-              key={photo.url + globalIndex}
-              style={[
-                styles.postcard,
-                {
-                  zIndex: sliceIndex,
-                  transform: [...dropVal.getTranslateTransform(), { rotate: dropRotateStr }, { scale: dropScale }],
-                },
-              ]}
-            >
-              <FrameComponent>{cardContent}</FrameComponent>
-            </Animated.View>
-          );
-        }
-
-        if (isTop) {
-          const canSwipe = n > 1;
-          if (canSwipe) {
             return (
               <Animated.View
                 key={photo.url + globalIndex}
                 style={[
-                  styles.postcard,
+                  styles.polaroidOuter,
                   {
-                    zIndex: remaining,
-                    transform: [{ translateX: pan.x }, { translateY: pan.y }, { rotate: rotateInterpolate }],
+                    zIndex: sliceIndex,
+                    transform: [...dropVal.getTranslateTransform(), { rotate: dropRotateStr }, { scale: dropScale }],
                   },
                 ]}
-                {...(canSwipe && !isResetting ? panResponder.panHandlers : {})}
               >
                 <FrameComponent>{cardContent}</FrameComponent>
               </Animated.View>
             );
           }
-          return (
-            <View key={photo.url + globalIndex} style={[styles.postcard, { zIndex: remaining }]}>
-              <FrameComponent>{cardContent}</FrameComponent>
-            </View>
-          );
-        }
 
-        const { rotation, offsetX, offsetY, scale } = layout;
-        return (
-          <Animated.View
-            key={photo.url + globalIndex}
-            shouldRasterizeIOS={true}
-            style={[
-              styles.postcard,
-              {
-                zIndex: remaining - sliceIndex,
-                transform: [
-                  { translateX: offsetX },
-                  { translateY: offsetY },
-                  { scale },
-                  { rotate: `${rotation}deg` },
-                ],
-              },
-            ]}
-          >
+          if (isTop) {
+            const canSwipe = n > 1;
+            if (canSwipe) {
+              return (
+                <Animated.View
+                  key={photo.url + globalIndex}
+                  style={[
+                    styles.polaroidOuter,
+                    {
+                      zIndex: remaining,
+                      transform: [{ translateX: pan.x }, { translateY: pan.y }, { rotate: rotateInterpolate }],
+                    },
+                  ]}
+                  {...(canSwipe && !isResetting ? panResponder.panHandlers : {})}
+                >
+                  <FrameComponent>{cardContent}</FrameComponent>
+                </Animated.View>
+              );
+            }
+            return (
+              <View key={photo.url + globalIndex} style={[styles.polaroidOuter, { zIndex: remaining }]}>
+                <FrameComponent>{cardContent}</FrameComponent>
+              </View>
+            );
+          }
+
+          const { rotation, offsetX, offsetY, scale } = layout;
+          return (
+            <Animated.View
+              key={photo.url + globalIndex}
+              shouldRasterizeIOS={true}
+              style={[
+                styles.polaroidOuter,
+                {
+                  zIndex: remaining - sliceIndex,
+                  transform: [
+                    { translateX: offsetX },
+                    { translateY: offsetY },
+                    { scale },
+                    { rotate: `${rotation}deg` },
+                  ],
+                },
+              ]}
+            >
             <FrameComponent>
-              <View style={styles.postcardInner}>
-                <Image source={{ uri: photo.url }} style={styles.postcardImage} resizeMode="cover" />
+              <View style={styles.polaroidInner}>
+                <Image source={{ uri: photo.url }} style={styles.polaroidImage} resizeMode="cover" />
               </View>
               <Text style={styles.stamp} numberOfLines={2}>{stampText}</Text>
             </FrameComponent>
@@ -397,13 +411,31 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFir
 
 const styles = StyleSheet.create({
   stackContainer: {
-    width: '88%',
+    width: STACK_WIDTH,
+    height: STACK_HEIGHT,
     alignSelf: 'center',
-    aspectRatio: 4 / 3,
     marginBottom: 28,
     position: 'relative',
   },
-  postcard: {
+  polaroidOuter: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: FRAME_RADIUS,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderColor: BORDER_PINK,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    shadowColor: 'rgba(92, 74, 74, 0.12)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  polaroid: {
     position: 'absolute',
     left: 0,
     top: 0,
@@ -412,6 +444,9 @@ const styles = StyleSheet.create({
     borderRadius: FRAME_RADIUS,
     overflow: 'hidden',
     opacity: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  whitePolaroidBg: {
     backgroundColor: '#FFFFFF',
   },
   frameRoot: {
@@ -466,25 +501,25 @@ const styles = StyleSheet.create({
   frameHeart: {
     position: 'absolute',
   },
-  postcardInner: {
+  polaroidInner: {
     flex: 1,
     borderRadius: INNER_RADIUS,
     overflow: 'hidden',
   },
-  postcardImage: {
+  polaroidImage: {
     width: '100%',
     height: '100%',
     borderRadius: INNER_RADIUS,
   },
   stamp: {
     position: 'absolute',
-    bottom: 10,
-    left: 14,
-    right: 14,
-    fontSize: 11,
+    bottom: 12,
+    left: 16,
+    right: 16,
+    fontSize: 15,
+    fontWeight: '500',
     color: STAMP_COLOR,
-    opacity: 0.9,
-    fontStyle: 'italic',
+    textAlign: 'center',
   },
   placeholderInner: {
     flex: 1,
@@ -511,14 +546,14 @@ const styles = StyleSheet.create({
   },
 });
 
-/** Single framed postcard for overlay (e.g. dove send animation). framePresetIndex 0–3 = CandyStripes, Heart, GradientAura, PolkaDots. */
-export function FramedPostcardForOverlay({ imageUri, stampText, framePresetIndex = 2, style }) {
+/** Single framed polaroid for overlay (e.g. dove send animation). framePresetIndex 0–3 = CandyStripes, Heart, GradientAura, PolkaDots. */
+export function FramedPolaroidForOverlay({ imageUri, stampText, framePresetIndex = 2, style }) {
   const FrameComponent = FRAME_COMPONENTS[framePresetIndex % 4];
   return (
-    <View style={[styles.postcard, style]}>
+    <View style={[styles.polaroid, style]}>
       <FrameComponent>
-        <View style={styles.postcardInner}>
-          <Image source={{ uri: imageUri }} style={styles.postcardImage} resizeMode="cover" />
+        <View style={styles.polaroidInner}>
+          <Image source={{ uri: imageUri }} style={styles.polaroidImage} resizeMode="cover" />
         </View>
         {stampText ? <Text style={styles.stamp} numberOfLines={2}>{stampText}</Text> : null}
       </FrameComponent>

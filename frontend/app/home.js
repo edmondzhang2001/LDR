@@ -9,6 +9,7 @@ import { useAuthStore } from '../src/store/useAuthStore';
 import { Card } from '../src/components/Card';
 import { ReunionCard } from '../src/components/ReunionCard';
 import { PostcardStack } from '../src/components/PostcardStack';
+import { PolaroidStack } from '../src/components/PolaroidStack';
 import { MoodEditorModal } from '../src/components/MoodEditorModal';
 import { DoveCarryOverlay } from '../src/components/DoveCarryOverlay';
 import { updateLocation, updateBattery, getPresignedPhotoUrl } from '../src/lib/api';
@@ -312,7 +313,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <PostcardStack partnerPhotos={partnerPhotos} partnerCity={cityName} partnerFirstName={partner?.name?.trim().split(/\s+/)[0] || ''} />
+        <PolaroidStack partnerPhotos={partnerPhotos} partnerCity={cityName} partnerFirstName={partner?.name?.trim().split(/\s+/)[0] || ''} />
 
         <View style={styles.cards}>
           {/* Row 1: Location (left) + Weather (right) */}
