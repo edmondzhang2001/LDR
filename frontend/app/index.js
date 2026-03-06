@@ -14,7 +14,7 @@ export default function Index() {
     guardDone.current = true;
 
     if (!token || !user) {
-      router.replace('/auth');
+      router.replace('/onboarding');
       return;
     }
     if (!user.name) {

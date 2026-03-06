@@ -25,11 +25,11 @@ export default function RootLayout() {
     initAuth();
   }, [initAuth]);
 
-  // Only run redirect after auth has finished loading; then send to login if no valid session
+  // Only run redirect after auth has finished loading; unauthenticated users start at onboarding
   useEffect(() => {
     if (isAuthLoading) return;
     if (!sessionVerified) return;
-    if (!token || !user) router.replace('/auth');
+    if (!token || !user) router.replace('/onboarding');
   }, [isAuthLoading, sessionVerified, token, user, router]);
 
   if (isAuthLoading) {
