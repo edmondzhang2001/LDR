@@ -8,7 +8,7 @@ import { getCountdown, formatCountdown } from '../utils/countdown';
 
 const RADIUS = 24;
 
-export function ReunionCard({ reunion, saveReunion, endReunion, glass, inTray }) {
+export function ReunionCard({ reunion, saveReunion, endReunion, distanceKm, glass, inTray }) {
   const [showPicker, setShowPicker] = useState(false);
   const [pickerDate, setPickerDate] = useState(() => {
     const d = new Date();
@@ -121,6 +121,9 @@ export function ReunionCard({ reunion, saveReunion, endReunion, glass, inTray })
           <Ionicons name="heart" size={28} color={iconColorBlush} />
         </View>
         <Text style={ts(styles.togetherTitle)}>You're Together!</Text>
+        {distanceKm != null && (
+          <Text style={ts(styles.distanceLine)}>{distanceKm} km away</Text>
+        )}
         <Text style={ts(styles.dayOfVisit)}>Day {dayOfVisit} of visit</Text>
         <Pressable
           style={({ pressed }) => [styles.endButton, pressed && styles.buttonPressed]}
@@ -149,6 +152,9 @@ export function ReunionCard({ reunion, saveReunion, endReunion, glass, inTray })
           </Pressable>
         </View>
         <Text style={ts(styles.countdownLabel)}>until you're together</Text>
+        {distanceKm != null && (
+          <Text style={ts(styles.distanceLine)}>{distanceKm} km away</Text>
+        )}
       </Card>
 
       {showPicker && (
@@ -256,6 +262,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.skyDark,
     letterSpacing: -0.5,
+  },
+  distanceLine: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 4,
+    marginBottom: 2,
   },
   countdownLabel: {
     fontSize: 14,

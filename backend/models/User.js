@@ -72,6 +72,7 @@ const userSchema = new mongoose.Schema(
       {
         url: { type: String, required: true },
         createdAt: { type: Date, default: Date.now },
+        caption: { type: String, maxLength: [60, 'Captions can be max 60 characters.'], default: '' },
       },
     ],
     pairingCode: {

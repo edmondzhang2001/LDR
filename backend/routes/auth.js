@@ -61,7 +61,7 @@ router.get('/me', requireAuth, async (req, res) => {
     const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const photos = (user.photos || [])
       .filter((p) => new Date(p.createdAt) >= cutoff24h)
-      .map((p) => ({ url: p.url, createdAt: p.createdAt.toISOString() }));
+      .map((p) => ({ url: p.url, createdAt: p.createdAt.toISOString(), caption: p.caption || '' }));
     res.json({
       user: {
         id: user._id,

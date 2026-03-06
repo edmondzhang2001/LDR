@@ -212,9 +212,9 @@ export const useAuthStore = create((set, get) => {
       if (user) SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
     },
 
-    /** Register a photo URL after S3 upload; updates user.photos in store. */
-    addPhotoAfterUpload: async (finalUrl) => {
-      const data = await addUserPhoto(finalUrl);
+    /** Register a photo URL and optional caption after S3 upload; updates user.photos in store. */
+    addPhotoAfterUpload: async (finalUrl, caption = '') => {
+      const data = await addUserPhoto(finalUrl, caption);
       set((state) => ({
         user: state.user ? { ...state.user, photos: data.photos ?? [] } : null,
       }));

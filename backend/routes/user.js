@@ -29,7 +29,7 @@ router.get('/partner', requireAuth, async (req, res) => {
     const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const partnerPhotos = (partner.photos || [])
       .filter((p) => new Date(p.createdAt) >= cutoff24h)
-      .map((p) => ({ url: p.url, createdAt: new Date(p.createdAt).toISOString() }));
+      .map((p) => ({ url: p.url, createdAt: new Date(p.createdAt).toISOString(), caption: p.caption || '' }));
     res.json({
       partner: {
         id: partner._id,
@@ -69,17 +69,21 @@ router.get('/partner', requireAuth, async (req, res) => {
 /** POST /api/user/photo — add a photo URL to the user's Daily Story (after S3 upload). */
 router.post('/photo', requireAuth, async (req, res) => {
   try {
-    const { url } = req.body;
+    const { url, caption } = req.body;
     if (!url || typeof url !== 'string' || !url.trim()) {
       return res.status(400).json({ error: 'url is required' });
     }
+    const captionStr =
+      typeof caption === 'string' && caption.trim()
+        ? caption.trim().slice(0, 60)
+        : '';
     req.user.photos = req.user.photos || [];
-    req.user.photos.push({ url: url.trim(), createdAt: new Date() });
+    req.user.photos.push({ url: url.trim(), createdAt: new Date(), caption: captionStr });
     await req.user.save();
     const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const photos = (req.user.photos || [])
       .filter((p) => new Date(p.createdAt) >= cutoff24h)
-      .map((p) => ({ url: p.url, createdAt: p.createdAt.toISOString() }));
+      .map((p) => ({ url: p.url, createdAt: p.createdAt.toISOString(), caption: p.caption || '' }));
     res.json({ photos });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -100,8 +100,8 @@ export async function getPresignedPhotoUrl() {
   return data;
 }
 
-/** POST /api/user/photo — register photo URL after S3 upload (Daily Story). */
-export async function addUserPhoto(url) {
-  const { data } = await api.post('/user/photo', { url });
+/** POST /api/user/photo — register photo URL and optional caption after S3 upload (Daily Story). */
+export async function addUserPhoto(url, caption = '') {
+  const { data } = await api.post('/user/photo', { url, caption: caption ? String(caption).trim().slice(0, 60) : '' });
   return data;
 }

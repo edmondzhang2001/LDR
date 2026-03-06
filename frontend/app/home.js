@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert, Modal, TextInput, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as Battery from 'expo-battery';
@@ -15,6 +15,7 @@ import { colors } from '../src/theme/colors';
 import { fetchWeatherAt, weatherIconToIonicons } from '../src/utils/weather';
 import { formatRelativeTime } from '../src/utils/relativeTime';
 import { usePartnerTime } from '../src/hooks/usePartnerTime';
+import { calculateDistance } from '../src/utils/distance';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -24,6 +25,9 @@ export default function HomeScreen() {
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [moodModalVisible, setMoodModalVisible] = useState(false);
+  const [uploadPreviewUri, setUploadPreviewUri] = useState(null);
+  const [uploadCaption, setUploadCaption] = useState('');
+  const CAPTION_MAX = 60;
 
   const partnerTime = usePartnerTime(partner?.timezone);
 
@@ -130,7 +134,7 @@ export default function HomeScreen() {
   const userPhotos = user?.photos ?? [];
   const partnerPhotos = partner?.photos ?? [];
 
-  const uploadImageUri = async (uri) => {
+  const uploadImageUri = async (uri, caption = '') => {
     setPhotoUploading(true);
     try {
       // 1. Get the pre-signed URL and final URL from our backend
@@ -163,13 +167,20 @@ export default function HomeScreen() {
         throw new Error('S3 upload failed: ' + s3Response.status + ' ' + (errText || s3Response.statusText));
       }
 
-      // 4. Save the final URL to our backend / MongoDB
-      await addPhotoAfterUpload(finalUrl);
+      // 4. Save the final URL and caption to our backend / MongoDB
+      await addPhotoAfterUpload(finalUrl, caption);
     } catch (e) {
       console.error('[Daily Story upload]', e?.message || e);
     } finally {
       setPhotoUploading(false);
+      setUploadPreviewUri(null);
+      setUploadCaption('');
     }
+  };
+
+  const openUploadWithPreview = (uri) => {
+    setUploadPreviewUri(uri);
+    setUploadCaption('');
   };
 
   const handleCameraPress = () => {
@@ -188,7 +199,7 @@ export default function HomeScreen() {
               allowsEditing: false,
             });
             if (result.canceled || !result.assets?.[0]?.uri) return;
-            await uploadImageUri(result.assets[0].uri);
+            openUploadWithPreview(result.assets[0].uri);
           },
         },
         {
@@ -201,7 +212,7 @@ export default function HomeScreen() {
               allowsEditing: false,
             });
             if (result.canceled || !result.assets?.[0]?.uri) return;
-            await uploadImageUri(result.assets[0].uri);
+            openUploadWithPreview(result.assets[0].uri);
           },
         },
         { text: 'Cancel', style: 'cancel' },
@@ -231,6 +242,10 @@ export default function HomeScreen() {
   const lastUpdated = partner?.lastUpdatedDataAt;
   const relativeTime = lastUpdated ? formatRelativeTime(lastUpdated) : '';
   const partnerFirstName = (partner?.name?.trim().split(/\s+/)[0] || 'PARTNER').toUpperCase();
+  const distanceKm =
+    myLocation && hasPartnerCoords
+      ? Math.round(calculateDistance(myLocation.lat, myLocation.lng, partnerLoc.lat, partnerLoc.lng))
+      : null;
 
   return (
     <View style={styles.container}>
@@ -275,7 +290,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <PostcardStack partnerPhotos={partnerPhotos} partnerCity={cityName} />
+        <PostcardStack partnerPhotos={partnerPhotos} partnerCity={cityName} partnerFirstName={partner?.name?.trim().split(/\s+/)[0] || ''} />
 
         <View style={styles.cards}>
           {/* Row 1: Location (left) + Weather (right) */}
@@ -314,11 +329,12 @@ export default function HomeScreen() {
             <Text style={styles.batteryLabel}>Partner's battery</Text>
           </Card>
 
-          {/* Row 3: Reunion (editable) */}
+          {/* Row 3: Reunion (editable) + distance */}
           <ReunionCard
             reunion={user.reunion}
             saveReunion={saveReunion}
             endReunion={endReunion}
+            distanceKm={distanceKm}
           />
 
           <Pressable style={({ pressed }) => [styles.signOutButton, pressed && styles.signOutButtonPressed]} onPress={logout}>
@@ -334,6 +350,44 @@ export default function HomeScreen() {
         onSave={(emoji, text) => updateMood(emoji ?? '', text ?? '')}
         onClose={() => setMoodModalVisible(false)}
       />
+
+      <Modal visible={!!uploadPreviewUri} transparent animationType="slide">
+        <View style={styles.uploadModalBackdrop}>
+          <View style={styles.uploadModalSheet}>
+            <Text style={styles.uploadModalTitle}>Add to Daily Story</Text>
+            <Image source={{ uri: uploadPreviewUri }} style={styles.uploadPreviewImage} resizeMode="cover" />
+            <Text style={styles.uploadCaptionLabel}>Caption (optional)</Text>
+            <TextInput
+              style={styles.uploadCaptionInput}
+              placeholder="Say something about this photo..."
+              placeholderTextColor={colors.textMuted}
+              value={uploadCaption}
+              onChangeText={(t) => setUploadCaption(t.slice(0, CAPTION_MAX))}
+              maxLength={CAPTION_MAX}
+            />
+            <Text style={styles.uploadCharCount}>{uploadCaption.length}/{CAPTION_MAX}</Text>
+            <View style={styles.uploadModalButtons}>
+              <Pressable
+                style={({ pressed }) => [styles.uploadCancelButton, pressed && styles.uploadButtonPressed]}
+                onPress={() => { setUploadPreviewUri(null); setUploadCaption(''); }}
+              >
+                <Text style={styles.uploadCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.uploadConfirmButton, pressed && styles.uploadButtonPressed]}
+                onPress={() => uploadImageUri(uploadPreviewUri, uploadCaption)}
+                disabled={photoUploading}
+              >
+                {photoUploading ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.uploadConfirmText}>Upload</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Pressable
         style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
@@ -561,5 +615,82 @@ const styles = StyleSheet.create({
   },
   fabPressed: {
     opacity: 0.9,
+  },
+  uploadModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  uploadModalSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  uploadModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  uploadPreviewImage: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    marginBottom: 16,
+  },
+  uploadCaptionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginBottom: 6,
+  },
+  uploadCaptionInput: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 16,
+    color: colors.text,
+    maxLength: 60,
+  },
+  uploadCharCount: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  uploadModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  uploadCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+  },
+  uploadConfirmButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 20,
+    backgroundColor: colors.blushDark,
+    alignItems: 'center',
+  },
+  uploadButtonPressed: {
+    opacity: 0.9,
+  },
+  uploadCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  uploadConfirmText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.white,
   },
 });

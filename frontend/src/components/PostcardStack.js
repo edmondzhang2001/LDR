@@ -128,7 +128,7 @@ function formatStampDate(createdAt) {
   return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' }).format(new Date(createdAt));
 }
 
-export function PostcardStack({ partnerPhotos = [], partnerCity = '' }) {
+export function PostcardStack({ partnerPhotos = [], partnerCity = '', partnerFirstName = '' }) {
   const photos = useMemo(
     () =>
       (partnerPhotos ?? [])
@@ -204,13 +204,16 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '' }) {
         const presetIndex = getPresetIndexForCard(globalIndex);
         const FrameComponent = FRAME_COMPONENTS[presetIndex];
 
-        const stampText = [formatStampDate(photo.createdAt), partnerCity].filter(Boolean).join(' • ') || '—';
+        const stampText =
+          photo.caption && photo.caption.trim()
+            ? `"${photo.caption.trim()}" - ${partnerFirstName || 'Partner'}`
+            : [formatStampDate(photo.createdAt), partnerCity].filter(Boolean).join(' • ') || '—';
         const cardContent = (
           <>
             <View style={styles.postcardInner}>
               <Image source={{ uri: photo.url }} style={styles.postcardImage} resizeMode="cover" />
             </View>
-            <Text style={styles.stamp} numberOfLines={1}>{stampText}</Text>
+            <Text style={styles.stamp} numberOfLines={2}>{stampText}</Text>
           </>
         );
 
@@ -262,7 +265,7 @@ export function PostcardStack({ partnerPhotos = [], partnerCity = '' }) {
               <View style={styles.postcardInner}>
                 <Image source={{ uri: photo.url }} style={styles.postcardImage} resizeMode="cover" />
               </View>
-              <Text style={styles.stamp} numberOfLines={1}>{stampText}</Text>
+              <Text style={styles.stamp} numberOfLines={2}>{stampText}</Text>
             </FrameComponent>
           </Animated.View>
         );
@@ -357,9 +360,9 @@ const styles = StyleSheet.create({
     bottom: 10,
     left: 14,
     right: 14,
-    fontSize: 12,
+    fontSize: 11,
     color: STAMP_COLOR,
-    opacity: 0.85,
+    opacity: 0.9,
     fontStyle: 'italic',
   },
   placeholderInner: {
