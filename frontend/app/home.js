@@ -10,6 +10,7 @@ import { Card } from '../src/components/Card';
 import { ReunionCard } from '../src/components/ReunionCard';
 import { PostcardStack } from '../src/components/PostcardStack';
 import { MoodEditorModal } from '../src/components/MoodEditorModal';
+import { DoveCarryOverlay } from '../src/components/DoveCarryOverlay';
 import { updateLocation, updateBattery, getPresignedPhotoUrl } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
 import { fetchWeatherAt, weatherIconToIonicons } from '../src/utils/weather';
@@ -19,9 +20,8 @@ import { calculateDistance } from '../src/utils/distance';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, partnerId, partner, fetchPartner, refreshUser, logout, saveReunion, endReunion, addPhotoAfterUpload, updateMood } = useAuthStore();
+  const { user, partnerId, partner, fetchPartner, refreshUser, logout, saveReunion, endReunion, addPhotoAfterUpload, updateMood, isAnimatingSend, isSendingPhoto, setAnimatingSend, setSendingPhoto } = useAuthStore();
   const [myLocation, setMyLocation] = useState(null);
-  const [photoUploading, setPhotoUploading] = useState(false);
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [moodModalVisible, setMoodModalVisible] = useState(false);
@@ -134,48 +134,48 @@ export default function HomeScreen() {
   const userPhotos = user?.photos ?? [];
   const partnerPhotos = partner?.photos ?? [];
 
-  const uploadImageUri = async (uri, caption = '') => {
-    setPhotoUploading(true);
+  /** Performs S3 upload + backend save. Returns true on success, false on failure. Does not clear modal state. */
+  const performUpload = async (uri, caption = '') => {
+    setSendingPhoto(true);
     try {
-      // 1. Get the pre-signed URL and final URL from our backend
       const { url: presignedUrl, finalUrl } = await getPresignedPhotoUrl();
-      if (!presignedUrl || !finalUrl) {
-        throw new Error('Backend did not return presigned URL or final URL');
-      }
+      if (!presignedUrl || !finalUrl) throw new Error('Backend did not return presigned URL or final URL');
 
-      // 2. Convert the local Expo image URI to a raw Blob
       const imageResponse = await fetch(uri);
-      if (!imageResponse.ok) {
-        throw new Error('Failed to read local image: ' + imageResponse.status + ' ' + imageResponse.statusText);
-      }
+      if (!imageResponse.ok) throw new Error('Failed to read local image');
       const imageBlob = await imageResponse.blob();
-      if (!imageBlob || imageBlob.size === 0) {
-        throw new Error('Local image blob is empty');
-      }
+      if (!imageBlob || imageBlob.size === 0) throw new Error('Local image blob is empty');
 
-      // 3. Upload directly to S3
       const s3Response = await fetch(presignedUrl, {
         method: 'PUT',
         body: imageBlob,
-        headers: {
-          'Content-Type': 'image/jpeg',
-        },
+        headers: { 'Content-Type': 'image/jpeg' },
       });
-
       if (!s3Response.ok) {
         const errText = await s3Response.text().catch(() => s3Response.statusText);
-        throw new Error('S3 upload failed: ' + s3Response.status + ' ' + (errText || s3Response.statusText));
+        throw new Error('S3 upload failed: ' + (errText || s3Response.statusText));
       }
 
-      // 4. Save the final URL and caption to our backend / MongoDB
       await addPhotoAfterUpload(finalUrl, caption);
+      return true;
     } catch (e) {
       console.error('[Daily Story upload]', e?.message || e);
+      return false;
     } finally {
-      setPhotoUploading(false);
-      setUploadPreviewUri(null);
-      setUploadCaption('');
+      setSendingPhoto(false);
     }
+  };
+
+  const handleSendPhoto = () => {
+    if (!uploadPreviewUri) return;
+    setAnimatingSend(true);
+  };
+
+  const handleDoveOverlayDone = () => {
+    setAnimatingSend(false);
+    setSendingPhoto(false);
+    setUploadPreviewUri(null);
+    setUploadCaption('');
   };
 
   const openUploadWithPreview = (uri) => {
@@ -351,7 +351,7 @@ export default function HomeScreen() {
         onClose={() => setMoodModalVisible(false)}
       />
 
-      <Modal visible={!!uploadPreviewUri} transparent animationType="slide">
+      <Modal visible={!!uploadPreviewUri && !isAnimatingSend} transparent animationType="slide">
         <View style={styles.uploadModalBackdrop}>
           <View style={styles.uploadModalSheet}>
             <Text style={styles.uploadModalTitle}>Add to Daily Story</Text>
@@ -375,26 +375,31 @@ export default function HomeScreen() {
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.uploadConfirmButton, pressed && styles.uploadButtonPressed]}
-                onPress={() => uploadImageUri(uploadPreviewUri, uploadCaption)}
-                disabled={photoUploading}
+                onPress={handleSendPhoto}
+                disabled={isAnimatingSend || isSendingPhoto}
               >
-                {photoUploading ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.uploadConfirmText}>Upload</Text>
-                )}
+                <Text style={styles.uploadConfirmText}>Send</Text>
               </Pressable>
             </View>
           </View>
         </View>
       </Modal>
 
+      <DoveCarryOverlay
+        visible={isAnimatingSend || isSendingPhoto}
+        imageUri={uploadPreviewUri}
+        caption={uploadCaption}
+        stampText={uploadCaption?.trim() ? `"${uploadCaption.trim()}"` : ''}
+        onUploadRequest={() => performUpload(uploadPreviewUri, uploadCaption)}
+        onDone={handleDoveOverlayDone}
+      />
+
       <Pressable
         style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
         onPress={handleCameraPress}
-        disabled={photoUploading}
+        disabled={isAnimatingSend || isSendingPhoto}
       >
-        {photoUploading ? (
+        {(isAnimatingSend || isSendingPhoto) ? (
           <ActivityIndicator size="small" color={colors.white} />
         ) : (
           <Ionicons name="camera" size={28} color={colors.white} />

@@ -51,6 +51,13 @@ export const useAuthStore = create((set, get) => {
     isAuthLoading: true,
     /** True after initAuth has run (session verified with backend or confirmed no token). */
     sessionVerified: false,
+    /** True while the dove-carry send animation is playing (before real upload). */
+    isAnimatingSend: false,
+    /** True while the actual photo upload (S3 + backend) is in progress. */
+    isSendingPhoto: false,
+
+    setAnimatingSend: (value) => set({ isAnimatingSend: value }),
+    setSendingPhoto: (value) => set({ isSendingPhoto: value }),
 
     setPartnerId: (partnerId) => set((state) => {
       const user = state.user ? { ...state.user, partnerId } : null;

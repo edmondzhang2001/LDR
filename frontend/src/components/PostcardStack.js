@@ -389,3 +389,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+/** Single framed postcard for overlay (e.g. dove send animation). framePresetIndex 0–3 = CandyStripes, Heart, GradientAura, PolkaDots. */
+export function FramedPostcardForOverlay({ imageUri, stampText, framePresetIndex = 2, style }) {
+  const FrameComponent = FRAME_COMPONENTS[framePresetIndex % 4];
+  return (
+    <View style={[styles.postcard, style]}>
+      <FrameComponent>
+        <View style={styles.postcardInner}>
+          <Image source={{ uri: imageUri }} style={styles.postcardImage} resizeMode="cover" />
+        </View>
+        {stampText ? <Text style={styles.stamp} numberOfLines={2}>{stampText}</Text> : null}
+      </FrameComponent>
+    </View>
+  );
+}
