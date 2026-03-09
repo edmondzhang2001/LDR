@@ -16,12 +16,14 @@ const INNER_RADIUS = 10;
 const FRAME_PADDING = 14;
 const FRAME_CHIN = 44;
 const BORDER_PINK = '#F5D0D0';
+const MAX_CAPTION_DISPLAY = 55;
+const STAMP_BAR_HEIGHT = 44;
 
 const PINK_STRIPE = '#F5D0D0';
 const CREAM_STRIPE = '#FFFBF5';
 
-function getPresetIndexForCard(globalIndex, isTopCard) {
-  return isTopCard ? 0 : (globalIndex % 4) + 1;
+function getPresetIndexForCard(globalIndex) {
+  return (globalIndex % 4) + 1;
 }
 
 /** Candy Stripes: solid cream bg + diagonal pink stripes via rotated View rectangles. */
@@ -143,6 +145,15 @@ function formatStampDate(createdAt) {
   return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' }).format(new Date(createdAt));
 }
 
+function buildStampText(photo, partnerFirstName, partnerCity) {
+  if (photo.caption && photo.caption.trim()) {
+    const raw = photo.caption.trim();
+    const truncated = raw.length > MAX_CAPTION_DISPLAY ? raw.slice(0, MAX_CAPTION_DISPLAY) + '…' : raw;
+    return `"${truncated}" - ${partnerFirstName || 'Partner'}`;
+  }
+  return [formatStampDate(photo.createdAt), partnerCity].filter(Boolean).join(' • ') || '—';
+}
+
 export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFirstName = '' }) {
   const photos = useMemo(
     () =>
@@ -162,6 +173,12 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
   const dropRotationsRef = useRef(null);
 
   const triggerOneAtATimeReset = () => {
+    const count = photosLengthRef.current;
+    if (count >= 2) {
+      dropValuesRef.current = Array.from({ length: count }, () => new Animated.ValueXY({ x: 0, y: -380 }));
+      dropRotationsRef.current = Array.from({ length: count }, () => new Animated.Value(90));
+      setDropIndex(0);
+    }
     setIsResetting(true);
     setActiveIndex(0);
   };
@@ -181,6 +198,7 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
             useNativeDriver: false,
           }).start(({ finished }) => {
             if (!finished) return;
+            pan.setValue({ x: 0, y: 0 });
             const len = photosLengthRef.current;
             const currentIndex = activeIndexRef.current;
             const wasLastCard = currentIndex === len - 1;
@@ -189,7 +207,6 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
             } else {
               setActiveIndex((prev) => prev + 1);
             }
-            setTimeout(() => pan.setValue({ x: 0, y: 0 }), 15);
           });
         } else if (
           Math.abs(dx) < TAP_MAX_MOVEMENT &&
@@ -202,6 +219,7 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
             useNativeDriver: false,
           }).start(({ finished }) => {
             if (!finished) return;
+            pan.setValue({ x: 0, y: 0 });
             const len = photosLengthRef.current;
             const currentIndex = activeIndexRef.current;
             const wasLastCard = currentIndex === len - 1;
@@ -210,7 +228,6 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
             } else {
               setActiveIndex((prev) => prev + 1);
             }
-            setTimeout(() => pan.setValue({ x: 0, y: 0 }), 15);
           });
         } else {
           Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 8, tension: 80 }).start();
@@ -229,24 +246,28 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
   useEffect(() => {
     if (!isResetting || activeIndex !== 0 || n < 2) return;
     const layout = getStackLayout(n - 1);
-    dropValuesRef.current = Array.from({ length: n }, () => new Animated.ValueXY({ x: 0, y: -380 }));
-    dropRotationsRef.current = Array.from({ length: n }, () => new Animated.Value(90));
-    setDropIndex(0);
+    if (!dropValuesRef.current || dropValuesRef.current.length !== n) {
+      dropValuesRef.current = Array.from({ length: n }, () => new Animated.ValueXY({ x: 0, y: -380 }));
+      dropRotationsRef.current = Array.from({ length: n }, () => new Animated.Value(90));
+      setDropIndex(0);
+    }
 
     const CASCADE_DELAY = 220;
     const timeouts = [];
 
+    // Drop earliest (oldest) card first, latest (newest) last
     for (let i = 0; i < n; i++) {
+      const cardIndex = n - 1 - i;
       const delay = i * CASCADE_DELAY;
-      const toX = i === 0 ? 0 : layout[i - 1].offsetX;
-      const toY = i === 0 ? 0 : layout[i - 1].offsetY;
-      const toRotation = i === 0 ? 0 : layout[i - 1].rotation;
-      const valXY = dropValuesRef.current[i];
-      const valRot = dropRotationsRef.current[i];
+      const toX = cardIndex === 0 ? 0 : layout[cardIndex - 1].offsetX;
+      const toY = cardIndex === 0 ? 0 : layout[cardIndex - 1].offsetY;
+      const toRotation = cardIndex === 0 ? 0 : layout[cardIndex - 1].rotation;
+      const valXY = dropValuesRef.current[cardIndex];
+      const valRot = dropRotationsRef.current[cardIndex];
 
       timeouts.push(
         setTimeout(() => {
-          setDropIndex(i);
+          setDropIndex(cardIndex);
           Animated.parallel([
             Animated.spring(valXY, {
               toValue: { x: toX, y: toY },
@@ -311,20 +332,19 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
         const isTop = sliceIndex === 0;
         const globalIndex = activeIndex + sliceIndex;
         const layout = !isTop ? stackLayout[sliceIndex - 1] : null;
-        const presetIndex = getPresetIndexForCard(globalIndex, isTop);
+        const presetIndex = getPresetIndexForCard(globalIndex);
         const FrameComponent = FRAME_COMPONENTS[presetIndex];
 
-        const stampText =
-          photo.caption && photo.caption.trim()
-            ? `"${photo.caption.trim()}" - ${partnerFirstName || 'Partner'}`
-            : [formatStampDate(photo.createdAt), partnerCity].filter(Boolean).join(' • ') || '—';
+        const stampText = buildStampText(photo, partnerFirstName, partnerCity);
         const cardContent = (
-          <>
+          <View style={styles.polaroidContent}>
             <View style={styles.polaroidInner}>
               <Image source={{ uri: photo.url }} style={styles.polaroidImage} resizeMode="cover" />
             </View>
-            <Text style={styles.stamp} numberOfLines={2}>{stampText}</Text>
-          </>
+            <View style={styles.stampBar}>
+              <Text style={styles.stamp} numberOfLines={2} ellipsizeMode="tail">{stampText}</Text>
+            </View>
+          </View>
         );
 
         if (isDropMode) {
@@ -342,7 +362,7 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
                 style={[
                   styles.polaroidOuter,
                   {
-                    zIndex: sliceIndex,
+                    zIndex: n - sliceIndex,
                     transform: [...dropVal.getTranslateTransform(), { rotate: dropRotateStr }, { scale: dropScale }],
                   },
                 ]}
@@ -397,10 +417,14 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
               ]}
             >
             <FrameComponent>
-              <View style={styles.polaroidInner}>
-                <Image source={{ uri: photo.url }} style={styles.polaroidImage} resizeMode="cover" />
+              <View style={styles.polaroidContent}>
+                <View style={styles.polaroidInner}>
+                  <Image source={{ uri: photo.url }} style={styles.polaroidImage} resizeMode="cover" />
+                </View>
+                <View style={styles.stampBar}>
+                  <Text style={styles.stamp} numberOfLines={2} ellipsizeMode="tail">{stampText}</Text>
+                </View>
               </View>
-              <Text style={styles.stamp} numberOfLines={2}>{stampText}</Text>
             </FrameComponent>
           </Animated.View>
         );
@@ -501,6 +525,9 @@ const styles = StyleSheet.create({
   frameHeart: {
     position: 'absolute',
   },
+  polaroidContent: {
+    flex: 1,
+  },
   polaroidInner: {
     flex: 1,
     borderRadius: INNER_RADIUS,
@@ -511,13 +538,16 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: INNER_RADIUS,
   },
+  stampBar: {
+    minHeight: STAMP_BAR_HEIGHT,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 12,
+    justifyContent: 'center',
+  },
   stamp: {
-    position: 'absolute',
-    bottom: 12,
-    left: 16,
-    right: 16,
     fontSize: 15,
-    fontWeight: '500',
+    fontFamily: 'PermanentMarker_400Regular',
     color: STAMP_COLOR,
     textAlign: 'center',
   },
@@ -549,13 +579,22 @@ const styles = StyleSheet.create({
 /** Single framed polaroid for overlay (e.g. dove send animation). framePresetIndex 0–3 = CandyStripes, Heart, GradientAura, PolkaDots. */
 export function FramedPolaroidForOverlay({ imageUri, stampText, framePresetIndex = 2, style }) {
   const FrameComponent = FRAME_COMPONENTS[framePresetIndex % 4];
+  const displayStamp = stampText && stampText.length > MAX_CAPTION_DISPLAY + 20
+    ? stampText.slice(0, MAX_CAPTION_DISPLAY + 20) + '…'
+    : stampText;
   return (
     <View style={[styles.polaroid, style]}>
       <FrameComponent>
-        <View style={styles.polaroidInner}>
-          <Image source={{ uri: imageUri }} style={styles.polaroidImage} resizeMode="cover" />
+        <View style={styles.polaroidContent}>
+          <View style={styles.polaroidInner}>
+            <Image source={{ uri: imageUri }} style={styles.polaroidImage} resizeMode="cover" />
+          </View>
+          {displayStamp ? (
+            <View style={styles.stampBar}>
+              <Text style={styles.stamp} numberOfLines={2} ellipsizeMode="tail">{displayStamp}</Text>
+            </View>
+          ) : null}
         </View>
-        {stampText ? <Text style={styles.stamp} numberOfLines={2}>{stampText}</Text> : null}
       </FrameComponent>
     </View>
   );

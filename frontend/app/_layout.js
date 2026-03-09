@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { colors } from '../src/theme/colors';
 
@@ -21,6 +23,10 @@ export default function RootLayout() {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
 
+  const [fontsLoaded] = useFonts({
+    PermanentMarker_400Regular,
+  });
+
   useEffect(() => {
     initAuth();
   }, [initAuth]);
@@ -32,7 +38,7 @@ export default function RootLayout() {
     if (!token || !user) router.replace('/onboarding');
   }, [isAuthLoading, sessionVerified, token, user, router]);
 
-  if (isAuthLoading) {
+  if (!fontsLoaded || isAuthLoading) {
     return (
       <>
         <StatusBar style="dark" />
