@@ -6,7 +6,7 @@ import { colors } from '../theme/colors';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 // Real Polaroid 600-style proportions: ~88×107 mm (width×height) → portrait, square image + bottom caption
 const POLAROID_ASPECT_RATIO = 88 / 107;
-const STACK_WIDTH = Math.min(SCREEN_WIDTH * 0.58, 280);
+const STACK_WIDTH = Math.min(SCREEN_WIDTH * 0.7, 340);
 const STACK_HEIGHT = STACK_WIDTH / POLAROID_ASPECT_RATIO;
 
 /** Exported for dove overlay so it uses the same polaroid size. */

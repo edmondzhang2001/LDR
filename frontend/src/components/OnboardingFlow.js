@@ -10,13 +10,17 @@ import {
   Image,
   Animated,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const STREAK_WIDTH = SCREEN_WIDTH * 3;
+const CONTAINER_HEIGHT = SCREEN_HEIGHT;
 const RADIUS = 28;
 const SHADOW = {
   shadowColor: colors.shadowStrong,
@@ -95,6 +99,46 @@ function SegmentedProgress({ segments, activeIndex }) {
   );
 }
 
+/** Continuous curvy streak (dove flight path) spanning the 3 feature slides. */
+function FlightPathStreak() {
+  const W = STREAK_WIDTH;
+  const H = CONTAINER_HEIGHT;
+  // Single path: start left of slide 1 → swoop under photo stack → curve up into slide 2 → loop → dip to slide 3 → end near LET'S GO
+  const pathD = [
+    `M 0 ${0.28 * H}`,
+    `C ${0.08 * W} ${0.38 * H}, ${0.2 * W} ${0.52 * H}, ${0.28 * W} ${0.5 * H}`,
+    `S ${0.42 * W} ${0.32 * H}, ${0.5 * W} ${0.32 * H}`,
+    `C ${0.58 * W} ${0.32 * H}, ${0.68 * W} ${0.24 * H}, ${0.78 * W} ${0.22 * H}`,
+    `S ${0.92 * W} ${0.2 * H}, ${0.98 * W} ${0.22 * H}`,
+    `C ${1.04 * W} ${0.24 * H}, ${1.08 * W} ${0.3 * H}, ${1.12 * W} ${0.28 * H}`,
+    `S ${1.22 * W} ${0.18 * H}, ${1.3 * W} ${0.2 * H}`,
+    `C ${1.42 * W} ${0.24 * H}, ${1.55 * W} ${0.38 * H}, ${1.68 * W} ${0.4 * H}`,
+    `C ${1.82 * W} ${0.42 * H}, ${2 * W} ${0.55 * H}, ${2.2 * W} ${0.62 * H}`,
+    `C ${2.45 * W} ${0.72 * H}, ${2.75 * W} ${0.82 * H}, ${W} ${0.88 * H}`,
+  ].join(' ');
+
+  return (
+    <View
+      style={[
+        styles.flightPathStreakContainer,
+        { width: STREAK_WIDTH, left: SCREEN_WIDTH * 3 },
+      ]}
+      pointerEvents="none"
+    >
+      <Svg width="100%" height={CONTAINER_HEIGHT} style={styles.flightPathSvg}>
+        <Path
+          d={pathD}
+          fill="none"
+          stroke="rgba(232, 160, 166, 0.45)"
+          strokeWidth={3}
+          strokeDasharray="8, 12"
+          strokeLinecap="round"
+        />
+      </Svg>
+    </View>
+  );
+}
+
 export function OnboardingFlow() {
   const router = useRouter();
   const [phase, setPhase] = useState('intro');
@@ -131,6 +175,23 @@ export function OnboardingFlow() {
 
   const handleGetStarted = () => setPhase('slides');
   const handleCreateAccount = () => router.replace('/auth');
+
+  const handleLetsGoPress = async () => {
+    const paywallResult = await RevenueCatUI.presentPaywall();
+    switch (paywallResult) {
+      case PAYWALL_RESULT.PURCHASED:
+      case PAYWALL_RESULT.RESTORED:
+        router.replace('/auth');
+        break;
+      case PAYWALL_RESULT.NOT_PRESENTED:
+      case PAYWALL_RESULT.ERROR:
+      case PAYWALL_RESULT.CANCELLED:
+        break;
+      default:
+        break;
+    }
+  };
+
   const showCTAs = phase === 'slides' && slideIndex === 5;
 
   const goToSlide = (index) => {
@@ -192,6 +253,7 @@ export function OnboardingFlow() {
           }}
           style={styles.carouselScroll}
         >
+          <FlightPathStreak />
           {/* Slides 0–2: Questionnaire (multi-select) */}
           {[QUESTION_1, QUESTION_2, QUESTION_3].map((q, qIndex) => {
             const sel = qIndex === 0 ? situation : qIndex === 1 ? hardestPart : bringsYouHere;
@@ -387,7 +449,7 @@ export function OnboardingFlow() {
 
       {showCTAs && (
         <View style={styles.bottomActions}>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleCreateAccount} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.primaryButton} onPress={handleLetsGoPress} activeOpacity={0.85}>
             <Text style={styles.primaryButtonText}>LET'S GO!</Text>
           </TouchableOpacity>
           <Pressable onPress={handleCreateAccount} style={styles.secondaryLink}>
@@ -502,6 +564,18 @@ const styles = StyleSheet.create({
   },
   carouselScroll: {
     flex: 1,
+  },
+  flightPathStreakContainer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    zIndex: -1,
+  },
+  flightPathSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
   },
   tapZone: {
     position: 'absolute',
