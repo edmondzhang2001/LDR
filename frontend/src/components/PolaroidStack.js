@@ -4,17 +4,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const STACK_WIDTH = Math.min(SCREEN_WIDTH * 0.6, 400);
-const STACK_HEIGHT = Math.min(SCREEN_HEIGHT * 0.4, 420);
+// Real Polaroid 600-style proportions: ~88×107 mm (width×height) → portrait, square image + bottom caption
+const POLAROID_ASPECT_RATIO = 88 / 107;
+const STACK_WIDTH = Math.min(SCREEN_WIDTH * 0.58, 280);
+const STACK_HEIGHT = STACK_WIDTH / POLAROID_ASPECT_RATIO;
+
+/** Exported for dove overlay so it uses the same polaroid size. */
+export const POLAROID_CARD_WIDTH = STACK_WIDTH;
+export const POLAROID_CARD_HEIGHT = STACK_HEIGHT;
 
 const SWIPE_THRESHOLD = 120;
 const TAP_MAX_MOVEMENT = 20;
 const FLY_OFF_DISTANCE = 400;
+/** Start cards fully above viewport during cascade drop so none are visible before they drop. */
+const DROP_INITIAL_Y = -(SCREEN_HEIGHT + STACK_HEIGHT);
 const STAMP_COLOR = '#2C2C2C';
 const FRAME_RADIUS = 20;
 const INNER_RADIUS = 10;
 const FRAME_PADDING = 14;
-const FRAME_CHIN = 44;
+const FRAME_CHIN = 36;
 const BORDER_PINK = '#F5D0D0';
 const MAX_CAPTION_DISPLAY = 55;
 const STAMP_BAR_HEIGHT = 44;
@@ -175,7 +183,7 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
   const triggerOneAtATimeReset = () => {
     const count = photosLengthRef.current;
     if (count >= 2) {
-      dropValuesRef.current = Array.from({ length: count }, () => new Animated.ValueXY({ x: 0, y: -380 }));
+      dropValuesRef.current = Array.from({ length: count }, () => new Animated.ValueXY({ x: 0, y: DROP_INITIAL_Y }));
       dropRotationsRef.current = Array.from({ length: count }, () => new Animated.Value(90));
       setDropIndex(0);
     }
@@ -247,7 +255,7 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
     if (!isResetting || activeIndex !== 0 || n < 2) return;
     const layout = getStackLayout(n - 1);
     if (!dropValuesRef.current || dropValuesRef.current.length !== n) {
-      dropValuesRef.current = Array.from({ length: n }, () => new Animated.ValueXY({ x: 0, y: -380 }));
+      dropValuesRef.current = Array.from({ length: n }, () => new Animated.ValueXY({ x: 0, y: DROP_INITIAL_Y }));
       dropRotationsRef.current = Array.from({ length: n }, () => new Animated.Value(90));
       setDropIndex(0);
     }
@@ -529,7 +537,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   polaroidInner: {
-    flex: 1,
+    width: '100%',
+    aspectRatio: 1,
     borderRadius: INNER_RADIUS,
     overflow: 'hidden',
   },
@@ -576,14 +585,14 @@ const styles = StyleSheet.create({
   },
 });
 
-/** Single framed polaroid for overlay (e.g. dove send animation). framePresetIndex 0–3 = CandyStripes, Heart, GradientAura, PolkaDots. */
+/** Single framed polaroid for overlay (e.g. dove send animation). Same proportions and frame as stack. framePresetIndex 0–4 = White, CandyStripes, Heart, GradientAura, PolkaDots. */
 export function FramedPolaroidForOverlay({ imageUri, stampText, framePresetIndex = 2, style }) {
-  const FrameComponent = FRAME_COMPONENTS[framePresetIndex % 4];
+  const FrameComponent = FRAME_COMPONENTS[framePresetIndex % 5];
   const displayStamp = stampText && stampText.length > MAX_CAPTION_DISPLAY + 20
     ? stampText.slice(0, MAX_CAPTION_DISPLAY + 20) + '…'
     : stampText;
   return (
-    <View style={[styles.polaroid, style]}>
+    <View style={[styles.polaroidOuter, style]}>
       <FrameComponent>
         <View style={styles.polaroidContent}>
           <View style={styles.polaroidInner}>

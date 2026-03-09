@@ -1,12 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions } from 'react-native';
-import { FramedPostcardForOverlay } from './PostcardStack';
+import { FramedPolaroidForOverlay, POLAROID_CARD_WIDTH, POLAROID_CARD_HEIGHT } from './PolaroidStack';
 import { Dove } from './Dove';
 import { colors } from '../theme/colors';
 
 const { width: WINDOW_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
-const POSTCARD_WIDTH = Math.min(WINDOW_WIDTH * 0.72, 320);
-const POSTCARD_HEIGHT = POSTCARD_WIDTH * (3 / 4);
 const DOVE_SIZE = 52;
 /** Fly well beyond the screen so dove + postcard exit completely (top-right). */
 const FLY_OFF_TARGET_X = WINDOW_WIDTH + 150;
@@ -51,7 +49,7 @@ export function DoveCarryOverlay({
 
     overlayOpacity.setValue(0);
     doveOpacity.setValue(0);
-    doveX.setValue(POSTCARD_WIDTH / 2 + 24);
+    doveX.setValue(POLAROID_CARD_WIDTH / 2 + 24);
     doveY.setValue(28);
     flyX.setValue(0);
     flyY.setValue(0);
@@ -173,11 +171,11 @@ export function DoveCarryOverlay({
         ]}
       >
         <Animated.View style={[styles.postcardWrap, { opacity: Animated.multiply(postcardOpacity, dropOpacity) }]}>
-          <FramedPostcardForOverlay
+          <FramedPolaroidForOverlay
             imageUri={imageUri}
             stampText={stamp}
             framePresetIndex={2}
-            style={[styles.postcardBox, { width: POSTCARD_WIDTH, height: POSTCARD_HEIGHT }]}
+            style={[styles.postcardBox, { width: POLAROID_CARD_WIDTH, height: POLAROID_CARD_HEIGHT }]}
           />
         </Animated.View>
         <Animated.View
@@ -208,10 +206,10 @@ const styles = StyleSheet.create({
   },
   centered: {
     position: 'absolute',
-    left: (WINDOW_WIDTH - (POSTCARD_WIDTH + 120)) / 2,
-    top: (WINDOW_HEIGHT - (POSTCARD_HEIGHT + 100)) / 2,
-    width: POSTCARD_WIDTH + 120,
-    height: POSTCARD_HEIGHT + 100,
+    left: (WINDOW_WIDTH - (POLAROID_CARD_WIDTH + 120)) / 2,
+    top: (WINDOW_HEIGHT - (POLAROID_CARD_HEIGHT + 100)) / 2,
+    width: POLAROID_CARD_WIDTH + 120,
+    height: POLAROID_CARD_HEIGHT + 100,
     justifyContent: 'flex-start',
     alignItems: 'center',
   },
@@ -225,7 +223,7 @@ const styles = StyleSheet.create({
   },
   doveWrap: {
     position: 'absolute',
-    left: 60 + POSTCARD_WIDTH / 2 - (DOVE_SIZE * 1.4) / 2,
+    left: 60 + POLAROID_CARD_WIDTH / 2 - (DOVE_SIZE * 1.4) / 2,
     top: 0,
   },
 });
