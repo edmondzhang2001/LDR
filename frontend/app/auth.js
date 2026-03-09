@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import {
   GoogleSignin,
@@ -73,6 +74,10 @@ export default function AuthScreen() {
           .join(' ')
           .trim();
       await signInWithOAuth('apple', credential.identityToken, fullName || undefined);
+      const paywallResult = await RevenueCatUI.presentPaywall();
+      if (paywallResult === PAYWALL_RESULT.PURCHASED || paywallResult === PAYWALL_RESULT.RESTORED) {
+        // Subscribed; navigate to app
+      }
       router.replace('/');
     } catch (err) {
       if (err.code === 'ERR_REQUEST_CANCELED') {
@@ -113,6 +118,10 @@ export default function AuthScreen() {
       const userInfo = signInResult?.data?.user ?? signInResult?.user;
       const nameFromGoogle = (userInfo?.name ?? [userInfo?.givenName, userInfo?.familyName].filter(Boolean).join(' ').trim()) || undefined;
       await signInWithOAuth('google', idToken, nameFromGoogle);
+      const paywallResult = await RevenueCatUI.presentPaywall();
+      if (paywallResult === PAYWALL_RESULT.PURCHASED || paywallResult === PAYWALL_RESULT.RESTORED) {
+        // Subscribed; navigate to app
+      }
       router.replace('/');
     } catch (err) {
       if (err.code === statusCodes.SIGN_IN_CANCELLED) {

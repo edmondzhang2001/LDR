@@ -13,7 +13,6 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useOnboardingStore } from '../store/useOnboardingStore';
@@ -175,23 +174,6 @@ export function OnboardingFlow() {
 
   const handleGetStarted = () => setPhase('slides');
   const handleCreateAccount = () => router.replace('/auth');
-
-  const handleLetsGoPress = async () => {
-    const paywallResult = await RevenueCatUI.presentPaywall();
-    switch (paywallResult) {
-      case PAYWALL_RESULT.PURCHASED:
-      case PAYWALL_RESULT.RESTORED:
-        router.replace('/auth');
-        break;
-      case PAYWALL_RESULT.NOT_PRESENTED:
-      case PAYWALL_RESULT.ERROR:
-      case PAYWALL_RESULT.CANCELLED:
-        break;
-      default:
-        break;
-    }
-  };
-
   const showCTAs = phase === 'slides' && slideIndex === 5;
 
   const goToSlide = (index) => {
@@ -449,7 +431,7 @@ export function OnboardingFlow() {
 
       {showCTAs && (
         <View style={styles.bottomActions}>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleLetsGoPress} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.primaryButton} onPress={handleCreateAccount} activeOpacity={0.85}>
             <Text style={styles.primaryButtonText}>LET'S GO!</Text>
           </TouchableOpacity>
           <Pressable onPress={handleCreateAccount} style={styles.secondaryLink}>
