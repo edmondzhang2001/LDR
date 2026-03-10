@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker';
 import { useAuthStore } from '../src/store/useAuthStore';
+import { syncSubscription } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
 
 function SplashScreen() {
@@ -32,6 +33,8 @@ export default function RootLayout() {
     initAuth();
   }, [initAuth]);
 
+  const setHasPremiumAccessOptimistic = useAuthStore((s) => s.setHasPremiumAccessOptimistic);
+
   useEffect(() => {
     const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
     const apiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
@@ -44,6 +47,43 @@ export default function RootLayout() {
       if (__DEV__) console.warn('RevenueCat init skipped:', e?.message ?? e);
     }
   }, []);
+
+  useEffect(() => {
+    if (!Purchases) return;
+    const entitlementId = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID || 'premium';
+    const onCustomerInfoUpdated = (customerInfo) => {
+      const hasEntitlement = customerInfo?.entitlements?.active?.[entitlementId] != null;
+      if (hasEntitlement) {
+        setHasPremiumAccessOptimistic(true);
+        router.replace('/');
+      }
+    };
+    Purchases.addCustomerInfoUpdateListener(onCustomerInfoUpdated);
+    return () => {
+      Purchases.removeCustomerInfoUpdateListener(onCustomerInfoUpdated);
+    };
+  }, [router, setHasPremiumAccessOptimistic]);
+
+  /** Self-healing: on launch, if RevenueCat says user has entitlement but backend does not, sync and unblock. */
+  useEffect(() => {
+    const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+    if (!isNative || !Purchases || !sessionVerified || !token || !user?.id) return;
+
+    const entitlementId = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID || 'premium';
+
+    (async () => {
+      try {
+        await Purchases.logIn(user.id);
+        const customerInfo = await Purchases.getCustomerInfo();
+        const isRcPremium = typeof customerInfo?.entitlements?.active?.[entitlementId] !== 'undefined';
+
+        if (isRcPremium && user.hasPremiumAccess !== true) {
+          setHasPremiumAccessOptimistic(true);
+          syncSubscription().catch(() => {});
+        }
+      } catch (_) {}
+    })();
+  }, [sessionVerified, token, user?.id, user?.hasPremiumAccess, setHasPremiumAccessOptimistic]);
 
   // Only run redirect after auth has finished loading; unauthenticated users start at onboarding
   useEffect(() => {

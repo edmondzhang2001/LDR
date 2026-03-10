@@ -1,4 +1,9 @@
 require('dotenv').config();
+
+// So you can confirm the backend sees GOOGLE_CLIENT_ID when you start the server
+console.log('Google Sign-In configured:', !!process.env.GOOGLE_CLIENT_ID);
+console.log('Apple Sign-In configured:', !!process.env.APPLE_CLIENT_ID);
+
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -7,6 +12,7 @@ const authRouter = require('./routes/auth');
 const coupleRouter = require('./routes/couple');
 const photoRouter = require('./routes/photo');
 const reunionRouter = require('./routes/reunion');
+const revenuecatRouter = require('./routes/revenuecat');
 const uploadRouter = require('./routes/upload');
 const userRouter = require('./routes/user');
 
@@ -22,6 +28,7 @@ app.use('/api/photo', photoRouter);
 app.use('/api/reunion', reunionRouter);
 app.use('/api/user', userRouter);
 app.use('/api/upload', uploadRouter);
+app.use('/api/webhooks', revenuecatRouter);
 
 app.get('/health', (req, res) => {
   res.json({ ok: true });

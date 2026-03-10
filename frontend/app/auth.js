@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import Purchases from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import {
@@ -16,6 +17,7 @@ import {
 } from '@react-native-google-signin/google-signin';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
+import { syncSubscription } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
 
 // Configure Google Sign-In. On iOS both webClientId and iosClientId are required (no GoogleService-Info.plist).
@@ -44,6 +46,8 @@ const SHADOW = {
 export default function AuthScreen() {
   const router = useRouter();
   const signInWithOAuth = useAuthStore((s) => s.signInWithOAuth);
+  const refreshUser = useAuthStore((s) => s.refreshUser);
+  const setHasPremiumAccessOptimistic = useAuthStore((s) => s.setHasPremiumAccessOptimistic);
   const [loading, setLoading] = useState(null);
   const [error, setError] = useState('');
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -74,11 +78,21 @@ export default function AuthScreen() {
           .join(' ')
           .trim();
       await signInWithOAuth('apple', credential.identityToken, fullName || undefined);
+      await refreshUser();
+      const mongoUserId = useAuthStore.getState().user?.id;
+      if (Purchases && mongoUserId) {
+        try {
+          await Purchases.logIn(mongoUserId);
+        } catch (_) {}
+      }
       const paywallResult = await RevenueCatUI.presentPaywall();
       if (paywallResult === PAYWALL_RESULT.PURCHASED || paywallResult === PAYWALL_RESULT.RESTORED) {
-        // Subscribed; navigate to app
+        setHasPremiumAccessOptimistic(true);
+        syncSubscription().catch(() => {});
+        router.replace('/');
+      } else {
+        router.replace('/paywall');
       }
-      router.replace('/');
     } catch (err) {
       if (err.code === 'ERR_REQUEST_CANCELED') {
         return;
@@ -118,11 +132,21 @@ export default function AuthScreen() {
       const userInfo = signInResult?.data?.user ?? signInResult?.user;
       const nameFromGoogle = (userInfo?.name ?? [userInfo?.givenName, userInfo?.familyName].filter(Boolean).join(' ').trim()) || undefined;
       await signInWithOAuth('google', idToken, nameFromGoogle);
+      await refreshUser();
+      const mongoUserId = useAuthStore.getState().user?.id;
+      if (Purchases && mongoUserId) {
+        try {
+          await Purchases.logIn(mongoUserId);
+        } catch (_) {}
+      }
       const paywallResult = await RevenueCatUI.presentPaywall();
       if (paywallResult === PAYWALL_RESULT.PURCHASED || paywallResult === PAYWALL_RESULT.RESTORED) {
-        // Subscribed; navigate to app
+        setHasPremiumAccessOptimistic(true);
+        syncSubscription().catch(() => {});
+        router.replace('/');
+      } else {
+        router.replace('/paywall');
       }
-      router.replace('/');
     } catch (err) {
       if (err.code === statusCodes.SIGN_IN_CANCELLED) {
         return;

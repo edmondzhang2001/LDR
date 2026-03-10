@@ -17,7 +17,7 @@ Edit `backend/.env` and set at least:
 
 | Variable | What to set |
 |----------|------------------|
-| `MONGODB_URI` | Your MongoDB URL (e.g. `mongodb://localhost:27017/ldr`) |
+| `MONGODB_URI` | Your MongoDB URL (e.g. `mongodb://localhost:27017/duva`) |
 | `JWT_SECRET` | Any long random string (e.g. `openssl rand -hex 32`) |
 | `APPLE_CLIENT_ID` | Your **iOS app bundle identifier** (e.g. `com.anonymous.frontend` from `frontend/app.json` → `expo.ios.bundleIdentifier`) |
 | `GOOGLE_CLIENT_ID` | Your **Google Web OAuth client ID** (from step 3 below; same value as frontend web client ID) |
@@ -68,13 +68,13 @@ APPLE_CLIENT_ID=com.anonymous.frontend
 3. If asked, configure the **OAuth consent screen** (e.g. External, app name, support email).
 4. Create **two** OAuth client IDs:
    - **Application type: Web application**  
-     - Name e.g. “LDR Web”.  
+     - Name e.g. “Duva Web”.  
      - Copy the **Client ID** (ends with `.apps.googleusercontent.com`).  
      - Use this as **both**:
        - Backend: `GOOGLE_CLIENT_ID`
        - Frontend: `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
    - **Application type: iOS**  
-     - Name e.g. “LDR iOS”.  
+     - Name e.g. “Duva iOS”.  
      - Bundle ID: same as your app (e.g. `com.anonymous.frontend`).  
      - Copy the **Client ID**.  
      - Use this as: **Frontend**: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`

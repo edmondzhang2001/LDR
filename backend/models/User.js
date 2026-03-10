@@ -28,6 +28,10 @@ const userSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
     batteryLevel: {
       type: Number,
       min: 0,

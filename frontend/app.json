@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Duva",
+    "slug": "duva",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +13,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.edmond.ldr",
+      "bundleIdentifier": "com.edmond.duva",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -31,7 +31,7 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.edmond.ldr"
+      "package": "com.edmond.duva"
     },
     "web": {
       "favicon": "./assets/favicon.png"

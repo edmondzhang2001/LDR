@@ -166,6 +166,17 @@ router.put('/mood', requireAuth, async (req, res) => {
   }
 });
 
+/** POST /api/user/sync-subscription — set isPremium true for the authenticated user (MVP: trust client; used when RC SDK says user has entitlement but webhook missed). */
+router.post('/sync-subscription', requireAuth, async (req, res) => {
+  try {
+    req.user.isPremium = true;
+    await req.user.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /** PUT /api/user/profile — update current user profile (e.g. display name). */
 router.put('/profile', requireAuth, async (req, res) => {
   try {

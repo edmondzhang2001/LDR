@@ -49,6 +49,11 @@ router.get('/me', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+    let partner = null;
+    if (user.partnerId) {
+      partner = await User.findById(user.partnerId).select('isPremium').lean();
+    }
+    const hasPremiumAccess = Boolean(user.isPremium || (partner && partner.isPremium));
     const reunion =
       user.reunion?.startDate != null
         ? {
@@ -75,6 +80,7 @@ router.get('/me', requireAuth, async (req, res) => {
           user.mood?.emoji != null || user.mood?.text != null
             ? { emoji: user.mood.emoji || undefined, text: user.mood.text || undefined }
             : undefined,
+        hasPremiumAccess,
       },
     });
   } catch (err) {
@@ -85,6 +91,7 @@ router.get('/me', requireAuth, async (req, res) => {
 router.post('/oauth', async (req, res) => {
   try {
     const { identityToken, provider, name: nameFromClient } = req.body;
+    console.log('POST /oauth received, provider:', provider);
     if (!identityToken || typeof identityToken !== 'string') {
       return res.status(400).json({ error: 'identityToken is required' });
     }

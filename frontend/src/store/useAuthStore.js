@@ -12,6 +12,7 @@ function normalizeUser(dataUser) {
     email: dataUser.email ?? undefined,
     name: dataUser.name ?? undefined,
     partnerId: dataUser.partnerId ?? null,
+    hasPremiumAccess: Boolean(dataUser.hasPremiumAccess),
     reunion: dataUser.reunion ?? null,
     photos: Array.isArray(dataUser.photos) ? dataUser.photos : [],
     timezone: dataUser.timezone ?? undefined,
@@ -73,6 +74,14 @@ export const useAuthStore = create((set, get) => {
         user,
         partnerId: user.partnerId ?? state.partnerId,
       };
+    }),
+
+    /** Optimistically set hasPremiumAccess (e.g. after purchase, before webhook). Lets user past the gate immediately. */
+    setHasPremiumAccessOptimistic: (value) => set((state) => {
+      if (!state.user) return state;
+      const user = { ...state.user, hasPremiumAccess: Boolean(value) };
+      SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+      return { user };
     }),
 
     /** Fetch /api/auth/me and update user + partnerId (and persist). Call on app load and when polling after generating code. */

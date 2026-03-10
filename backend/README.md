@@ -1,6 +1,6 @@
-# LDR Backend
+# Duva Backend
 
-Node.js/Express API for the LDR long-distance relationship app.
+Node.js/Express API for the Duva long-distance relationship app.
 
 ## Setup
 

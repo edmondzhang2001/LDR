@@ -79,8 +79,8 @@ const QUESTION_3 = {
   options: ['Feeling closer to my partner', 'Sending fun surprises', 'Having a shared space', 'Just exploring'],
 };
 
-const FEATURE_TITLES = ['YOUR FIRST IMPRESSIONS.', 'BRIDGE THE DISTANCE.', 'OUR MAGIC.'];
-const TOTAL_SLIDES = 6;
+const FEATURE_TITLES = ['YOUR FIRST IMPRESSIONS.', 'BRIDGE THE DISTANCE.', 'OUR MAGIC.', 'ONE SUBSCRIPTION. BOTH OF YOU.'];
+const TOTAL_SLIDES = 7;
 
 function SegmentedProgress({ segments, activeIndex }) {
   return (
@@ -174,7 +174,7 @@ export function OnboardingFlow() {
 
   const handleGetStarted = () => setPhase('slides');
   const handleCreateAccount = () => router.replace('/auth');
-  const showCTAs = phase === 'slides' && slideIndex === 5;
+  const showCTAs = phase === 'slides' && slideIndex === 6;
 
   const goToSlide = (index) => {
     const i = Math.max(0, Math.min(TOTAL_SLIDES - 1, index));
@@ -202,7 +202,7 @@ export function OnboardingFlow() {
           <Animated.View style={[styles.introIconWrap, { transform: [{ scale: pulseAnim }] }]}>
             <Ionicons name="heart" size={56} color={colors.blushDark} />
           </Animated.View>
-          <Text style={styles.introAppName}>LDR</Text>
+          <Text style={styles.introAppName}>Duva</Text>
           <Text style={styles.introTagline}>Close the distance.</Text>
         </View>
         <View style={styles.introBottom}>
@@ -381,7 +381,7 @@ export function OnboardingFlow() {
             </Text>
           </View>
 
-          {/* Slide 5: OUR MAGIC + CTAs below */}
+          {/* Slide 5: OUR MAGIC */}
           <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
             <View style={styles.slide3Dashboard}>
               <View style={styles.widgetRow}>
@@ -415,6 +415,36 @@ export function OnboardingFlow() {
                 </View>
               </View>
             </View>
+          </View>
+
+          {/* Slide 6: One subscription for the couple — CTAs below */}
+          <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
+            <View style={styles.slideCoupleSubscription}>
+              <View style={styles.coupleSubscriptionRow}>
+                <View style={[styles.puffyCard, styles.coupleSubscriptionCard]}>
+                  <Ionicons name="person" size={32} color={colors.blushDark} />
+                  <Text style={styles.puffyCardLabel}>You</Text>
+                </View>
+                <View style={styles.coupleSubscriptionHeart}>
+                  <Ionicons name="heart" size={36} color={colors.blushDark} />
+                </View>
+                <View style={[styles.puffyCard, styles.coupleSubscriptionCard]}>
+                  <Ionicons name="person" size={32} color={colors.blushDark} />
+                  <Text style={styles.puffyCardLabel}>Partner</Text>
+                </View>
+              </View>
+              <View style={styles.coupleSubscriptionBadge}>
+                <View style={[styles.puffyCardWide, styles.coupleSubscriptionBadgeCard]}>
+                  <Ionicons name="checkmark-circle" size={28} color={colors.blushDark} />
+                  <Text style={styles.puffyCardLabel}>One subscription</Text>
+                  <Text style={styles.coupleSubscriptionBadgeSub}>covers you both</Text>
+                </View>
+              </View>
+            </View>
+            <Text style={styles.slideTitle}>{FEATURE_TITLES[3]}</Text>
+            <Text style={styles.slideSubtitle}>
+              Only one of you needs to subscribe. When either partner pays, you both get full access—no extra charge.
+            </Text>
           </View>
         </ScrollView>
 
@@ -784,6 +814,46 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
     fontWeight: '600',
+  },
+  slideCoupleSubscription: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  coupleSubscriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  coupleSubscriptionCard: {
+    minWidth: 88,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  coupleSubscriptionHeart: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.blush + '60',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOW,
+  },
+  coupleSubscriptionBadge: {
+    width: '100%',
+    maxWidth: 280,
+  },
+  coupleSubscriptionBadgeCard: {
+    flex: undefined,
+    alignItems: 'center',
+  },
+  coupleSubscriptionBadgeSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: '600',
+    marginTop: 4,
   },
   bottomActions: {
     position: 'absolute',

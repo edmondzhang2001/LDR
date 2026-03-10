@@ -1,10 +1,13 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
 export const api = axios.create({
   baseURL: `${API_BASE}/api`,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    ...(API_BASE.includes('loca.lt') && { 'Bypass-Tunnel-Reminder': 'true' }),
+  },
 });
 
 let authToken = null;
@@ -103,5 +106,11 @@ export async function getPresignedPhotoUrl() {
 /** POST /api/user/photo — register photo URL and optional caption after S3 upload (Daily Story). */
 export async function addUserPhoto(url, caption = '') {
   const { data } = await api.post('/user/photo', { url, caption: caption ? String(caption).trim().slice(0, 60) : '' });
+  return data;
+}
+
+/** POST /api/user/sync-subscription — tell backend to set isPremium from client (self-heal after RC confirms entitlement). */
+export async function syncSubscription() {
+  const { data } = await api.post('/user/sync-subscription');
   return data;
 }
