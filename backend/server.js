@@ -34,8 +34,12 @@ app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
 
+const mongoOptions = {
+  // Prefer TLS 1.2+ for Atlas (avoids SSL alert 80 with older runtimes)
+  serverSelectionTimeoutMS: 10000,
+};
 mongoose
-  .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ldr')
+  .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ldr', mongoOptions)
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server listening on port ${PORT}`);

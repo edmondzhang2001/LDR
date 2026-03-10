@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Purchases from 'react-native-purchases';
-import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import {
   GoogleSignin,
@@ -17,7 +16,6 @@ import {
 } from '@react-native-google-signin/google-signin';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
-import { syncSubscription } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
 
 // Configure Google Sign-In. On iOS both webClientId and iosClientId are required (no GoogleService-Info.plist).
@@ -47,7 +45,6 @@ export default function AuthScreen() {
   const router = useRouter();
   const signInWithOAuth = useAuthStore((s) => s.signInWithOAuth);
   const refreshUser = useAuthStore((s) => s.refreshUser);
-  const setHasPremiumAccessOptimistic = useAuthStore((s) => s.setHasPremiumAccessOptimistic);
   const [loading, setLoading] = useState(null);
   const [error, setError] = useState('');
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -85,14 +82,8 @@ export default function AuthScreen() {
           await Purchases.logIn(mongoUserId);
         } catch (_) {}
       }
-      const paywallResult = await RevenueCatUI.presentPaywall();
-      if (paywallResult === PAYWALL_RESULT.PURCHASED || paywallResult === PAYWALL_RESULT.RESTORED) {
-        setHasPremiumAccessOptimistic(true);
-        syncSubscription().catch(() => {});
-        router.replace('/');
-      } else {
-        router.replace('/paywall');
-      }
+      // Route to app; index will send non‑premium users to paywall screen (where they can subscribe or enter partner code).
+      router.replace('/');
     } catch (err) {
       if (err.code === 'ERR_REQUEST_CANCELED') {
         return;
@@ -139,14 +130,8 @@ export default function AuthScreen() {
           await Purchases.logIn(mongoUserId);
         } catch (_) {}
       }
-      const paywallResult = await RevenueCatUI.presentPaywall();
-      if (paywallResult === PAYWALL_RESULT.PURCHASED || paywallResult === PAYWALL_RESULT.RESTORED) {
-        setHasPremiumAccessOptimistic(true);
-        syncSubscription().catch(() => {});
-        router.replace('/');
-      } else {
-        router.replace('/paywall');
-      }
+      // Route to app; index will send non‑premium users to paywall screen (where they can subscribe or enter partner code).
+      router.replace('/');
     } catch (err) {
       if (err.code === statusCodes.SIGN_IN_CANCELLED) {
         return;

@@ -73,6 +73,13 @@ export default function PaywallScreen() {
             <Text style={styles.primaryButtonText}>View subscription options</Text>
           )}
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.partnerCodeLink}
+          onPress={() => router.push('/partner-code-entry')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.partnerCodeLinkText}>Have a partner's code? Enter it here.</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => logout()} activeOpacity={0.85}>
           <Text style={styles.secondaryButtonText}>Sign out</Text>
         </TouchableOpacity>
@@ -133,6 +140,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.white,
+  },
+  partnerCodeLink: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  partnerCodeLinkText: {
+    fontSize: 15,
+    color: colors.skyDark,
+    fontWeight: '600',
   },
   secondaryButton: {
     alignItems: 'center',

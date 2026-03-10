@@ -12,7 +12,8 @@ const POLL_INTERVAL_MS = 3000;
 
 export default function PairScreen() {
   const router = useRouter();
-  const { partnerId, setPartnerId, refreshUser, logout } = useAuthStore();
+  const { user, partnerId, setPartnerId, refreshUser, logout } = useAuthStore();
+  const hasPremium = user?.hasPremiumAccess === true;
   const [generatedCode, setGeneratedCode] = useState(null);
   const [joinCode, setJoinCode] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
@@ -95,9 +96,13 @@ export default function PairScreen() {
           </View>
         </View>
         <Text style={styles.title}>Link with your partner</Text>
-        <Text style={styles.subtitle}>Generate a code or enter your partner’s code to connect.</Text>
+        <Text style={styles.subtitle}>
+          {hasPremium
+            ? 'Generate a code for your partner to enter in their app.'
+            : 'Generate a code or enter your partner\'s code to connect.'}
+        </Text>
 
-        {/* Top half: Generate */}
+        {/* Generate code — always shown; paying users only see this */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Generate connection code</Text>
           <Text style={styles.sectionHint}>Your partner will enter this code in their app.</Text>
@@ -117,33 +122,35 @@ export default function PairScreen() {
           {error && !joinCodeStr ? <Text style={styles.error}>{error}</Text> : null}
         </Card>
 
-        {/* Bottom half: Join */}
-        <Card style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Enter partner’s code</Text>
-          <Text style={styles.sectionHint}>Type the 6-digit code your partner shared.</Text>
-          <View style={styles.otpRow}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <TextInput
-                key={i}
-                ref={(r) => (otpInputRefs.current[i] = r)}
-                style={[styles.otpCell, joinCode[i] && styles.otpCellFilled]}
-                value={joinCode[i]}
-                onChangeText={(t) => {
-                  setJoinCodeAt(i, t);
-                  if (t && i < 5) otpInputRefs.current[i + 1]?.focus();
-                }}
-                onKeyPress={({ nativeEvent }) => {
-                  if (nativeEvent.key === 'Backspace' && !joinCode[i] && i > 0) otpInputRefs.current[i - 1]?.focus();
-                }}
-                keyboardType="number-pad"
-                maxLength={1}
-                selectTextOnFocus
-              />
-            ))}
-          </View>
-          <Button title="Connect" onPress={handleJoin} loading={joinLoading} disabled={joinCodeStr.length !== 6} />
-          {error && joinCodeStr ? <Text style={styles.error}>{error}</Text> : null}
-        </Card>
+
+        {!hasPremium && (
+          <Card style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Enter partner's code</Text>
+            <Text style={styles.sectionHint}>Type the 6-digit code your partner shared.</Text>
+            <View style={styles.otpRow}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <TextInput
+                  key={i}
+                  ref={(r) => (otpInputRefs.current[i] = r)}
+                  style={[styles.otpCell, joinCode[i] && styles.otpCellFilled]}
+                  value={joinCode[i]}
+                  onChangeText={(t) => {
+                    setJoinCodeAt(i, t);
+                    if (t && i < 5) otpInputRefs.current[i + 1]?.focus();
+                  }}
+                  onKeyPress={({ nativeEvent }) => {
+                    if (nativeEvent.key === 'Backspace' && !joinCode[i] && i > 0) otpInputRefs.current[i - 1]?.focus();
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  selectTextOnFocus
+                />
+              ))}
+            </View>
+            <Button title="Connect" onPress={handleJoin} loading={joinLoading} disabled={joinCodeStr.length !== 6} />
+            {error && joinCodeStr ? <Text style={styles.error}>{error}</Text> : null}
+          </Card>
+        )}
 
         <TouchableOpacity style={styles.logoutWrap} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={18} color={colors.textMuted} />

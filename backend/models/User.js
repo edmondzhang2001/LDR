@@ -93,7 +93,6 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userSchema.index({ oauthId: 1 }, { unique: true });
 userSchema.index({ pairingCode: 1 }, { sparse: true });
 
 module.exports = mongoose.model('User', userSchema);

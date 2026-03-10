@@ -61,9 +61,11 @@ router.post('/pair/join', requireAuth, async (req, res) => {
       pairingCodeExpiresAt: null,
     });
     await User.findByIdAndUpdate(joiner._id, { partnerId: creator._id });
+    const hasPremiumAccess = Boolean(joiner.isPremium || creator.isPremium);
     res.status(201).json({
       coupleId: couple._id,
       partnerId: creator._id,
+      hasPremiumAccess,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

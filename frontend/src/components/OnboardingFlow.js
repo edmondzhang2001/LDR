@@ -10,15 +10,23 @@ import {
   Image,
   Animated,
 } from 'react-native';
+import AnimatedReanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+  FadeIn,
+  FadeOut,
+} from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useOnboardingStore } from '../store/useOnboardingStore';
+import { LDRBackground } from './LDRBackground';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const STREAK_WIDTH = SCREEN_WIDTH * 3;
 const CONTAINER_HEIGHT = SCREEN_HEIGHT;
 const RADIUS = 28;
 const SHADOW = {
@@ -82,58 +90,63 @@ const QUESTION_3 = {
 const FEATURE_TITLES = ['YOUR FIRST IMPRESSIONS.', 'BRIDGE THE DISTANCE.', 'OUR MAGIC.', 'ONE SUBSCRIPTION. BOTH OF YOU.'];
 const TOTAL_SLIDES = 7;
 
-function SegmentedProgress({ segments, activeIndex }) {
+const SEGMENT_FILL_DURATION = 280;
+
+/** Premium segmented progress bar: smooth left-to-right fill per segment (Reanimated). */
+function SegmentedProgressBar({ segments, activeIndex }) {
+  const segmentFill = useSharedValue(0);
+  const activeIndexRef = useSharedValue(0);
+  const prevIndexRef = useRef(activeIndex);
+
+  useEffect(() => {
+    if (activeIndex > prevIndexRef.current) {
+      segmentFill.value = 0;
+      segmentFill.value = withTiming(1, {
+        duration: SEGMENT_FILL_DURATION,
+        easing: Easing.out(Easing.cubic),
+      });
+    } else if (activeIndex < prevIndexRef.current) {
+      segmentFill.value = 1;
+    } else if (activeIndex === 0 && prevIndexRef.current === 0) {
+      segmentFill.value = withTiming(1, {
+        duration: SEGMENT_FILL_DURATION,
+        easing: Easing.out(Easing.cubic),
+      });
+    }
+    prevIndexRef.current = activeIndex;
+    activeIndexRef.value = activeIndex;
+  }, [activeIndex, segmentFill, activeIndexRef]);
+
   return (
     <View style={styles.progressRow}>
       {Array.from({ length: segments }, (_, i) => (
-        <View
+        <SegmentFill
           key={i}
-          style={[
-            styles.progressSegment,
-            i <= activeIndex ? styles.progressSegmentFilled : styles.progressSegmentEmpty,
-          ]}
+          index={i}
+          segmentFill={segmentFill}
+          activeIndexRef={activeIndexRef}
         />
       ))}
     </View>
   );
 }
 
-/** Continuous curvy streak (dove flight path) spanning the 3 feature slides. */
-function FlightPathStreak() {
-  const W = STREAK_WIDTH;
-  const H = CONTAINER_HEIGHT;
-  // Single path: start left of slide 1 → swoop under photo stack → curve up into slide 2 → loop → dip to slide 3 → end near LET'S GO
-  const pathD = [
-    `M 0 ${0.28 * H}`,
-    `C ${0.08 * W} ${0.38 * H}, ${0.2 * W} ${0.52 * H}, ${0.28 * W} ${0.5 * H}`,
-    `S ${0.42 * W} ${0.32 * H}, ${0.5 * W} ${0.32 * H}`,
-    `C ${0.58 * W} ${0.32 * H}, ${0.68 * W} ${0.24 * H}, ${0.78 * W} ${0.22 * H}`,
-    `S ${0.92 * W} ${0.2 * H}, ${0.98 * W} ${0.22 * H}`,
-    `C ${1.04 * W} ${0.24 * H}, ${1.08 * W} ${0.3 * H}, ${1.12 * W} ${0.28 * H}`,
-    `S ${1.22 * W} ${0.18 * H}, ${1.3 * W} ${0.2 * H}`,
-    `C ${1.42 * W} ${0.24 * H}, ${1.55 * W} ${0.38 * H}, ${1.68 * W} ${0.4 * H}`,
-    `C ${1.82 * W} ${0.42 * H}, ${2 * W} ${0.55 * H}, ${2.2 * W} ${0.62 * H}`,
-    `C ${2.45 * W} ${0.72 * H}, ${2.75 * W} ${0.82 * H}, ${W} ${0.88 * H}`,
-  ].join(' ');
-
+function SegmentFill({ index, segmentFill, activeIndexRef }) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const active = activeIndexRef.value;
+    let scaleX = 0;
+    if (index < active) scaleX = 1;
+    else if (index === active) scaleX = segmentFill.value;
+    return {
+      transformOrigin: 'left',
+      transform: [{ scaleX }],
+    };
+  });
   return (
-    <View
-      style={[
-        styles.flightPathStreakContainer,
-        { width: STREAK_WIDTH, left: SCREEN_WIDTH * 3 },
-      ]}
-      pointerEvents="none"
-    >
-      <Svg width="100%" height={CONTAINER_HEIGHT} style={styles.flightPathSvg}>
-        <Path
-          d={pathD}
-          fill="none"
-          stroke="rgba(232, 160, 166, 0.45)"
-          strokeWidth={3}
-          strokeDasharray="8, 12"
-          strokeLinecap="round"
-        />
-      </Svg>
+    <View style={[styles.progressSegment, styles.progressSegmentEmpty]}>
+      <AnimatedReanimated.View
+        style={[styles.progressSegmentFill, animatedStyle]}
+      />
     </View>
   );
 }
@@ -142,7 +155,6 @@ export function OnboardingFlow() {
   const router = useRouter();
   const [phase, setPhase] = useState('intro');
   const [slideIndex, setSlideIndex] = useState(0);
-  const scrollRef = useRef(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -178,7 +190,6 @@ export function OnboardingFlow() {
 
   const goToSlide = (index) => {
     const i = Math.max(0, Math.min(TOTAL_SLIDES - 1, index));
-    scrollRef.current?.scrollTo({ x: i * SCREEN_WIDTH, animated: true });
     setSlideIndex(i);
   };
 
@@ -186,6 +197,217 @@ export function OnboardingFlow() {
     if (slideIndex === 0) setPhase('intro');
     else goToSlide(slideIndex - 1);
   };
+
+  /** Right-tap advance: allowed unless we're on a question slide with no selection. */
+  const canAdvance =
+    slideIndex <= 2
+      ? (slideIndex === 0 && situation.length > 0) ||
+        (slideIndex === 1 && hardestPart.length > 0) ||
+        (slideIndex === 2 && bringsYouHere.length > 0)
+      : slideIndex < TOTAL_SLIDES - 1;
+
+  const handleSlideNext = () => {
+    if (slideIndex === 2) setOnboardingData({ situation, hardestPart, bringsYouHere });
+    if (canAdvance && slideIndex < TOTAL_SLIDES - 1) goToSlide(slideIndex + 1);
+  };
+
+  const slideEntering = FadeIn.duration(180).withInitialValues({ opacity: 0, transform: [{ translateY: 10 }] });
+  const slideExiting = FadeOut.duration(120);
+
+  /** Returns the slide content for the given index (for tap-through state-driven render). */
+  function renderSlideContent(idx) {
+    if (idx <= 2) {
+      const q = [QUESTION_1, QUESTION_2, QUESTION_3][idx];
+      const sel = idx === 0 ? situation : idx === 1 ? hardestPart : bringsYouHere;
+      const tog = idx === 0 ? toggleSituation : idx === 1 ? toggleHardestPart : toggleBringsYouHere;
+      return (
+        <View style={[styles.slide, styles.questionSlide]}>
+          <Pressable onPress={() => (idx === 0 ? setPhase('intro') : goToSlide(idx - 1))} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </Pressable>
+          <Text style={styles.questionTitle}>{q.heading}</Text>
+          <ScrollView style={styles.pillScroll} contentContainerStyle={styles.pillScrollContent} showsVerticalScrollIndicator={false}>
+            {q.options.map((opt) => {
+              const isSelected = sel.includes(opt);
+              return (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.pill, isSelected && styles.pillSelected]}
+                  onPress={() => tog(opt)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>{opt}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <TouchableOpacity
+            style={[styles.continueBtn, !(sel.length > 0) && styles.primaryButtonDisabled]}
+            onPress={() => {
+              if (idx === 2) setOnboardingData({ situation, hardestPart, bringsYouHere });
+              goToSlide(idx + 1);
+            }}
+            disabled={sel.length === 0}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryButtonText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    if (idx === 3) {
+      return (
+        <View style={styles.slide}>
+          <View style={styles.slide1Content}>
+            <View style={styles.collageContainer}>
+              {STOCK_IMAGES.map((src, i) => {
+                const [top, leftVal, rightVal, rotate, zIndex, isHero] = COLLAGE_LAYOUT[i];
+                const imgSize = isHero ? HERO_IMAGE_SIZE : CARD_IMAGE_SIZE;
+                const wrapperW = isHero ? HERO_WRAPPER_W : CARD_WRAPPER_W;
+                const wrapperH = isHero ? HERO_WRAPPER_H : CARD_WRAPPER_H;
+                const innerWrapper = (
+                  <View
+                    style={[
+                      styles.postcardWrapper,
+                      styles.postcardWrapperHeroInner,
+                      { transform: [{ rotate: `${rotate}deg` }], backgroundColor: POSTCARD_PASTELS[i], width: wrapperW, height: wrapperH },
+                    ]}
+                  >
+                    <Image source={src} style={[styles.postcardImage, { width: imgSize, height: imgSize }]} resizeMode="cover" />
+                  </View>
+                );
+                if (isHero) return <View key={i} style={[styles.heroCardOuter, { top, zIndex }]}>{innerWrapper}</View>;
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.postcardWrapper,
+                      {
+                        top,
+                        ...(leftVal != null && { left: leftVal }),
+                        ...(rightVal != null && { right: rightVal }),
+                        transform: [{ rotate: `${rotate}deg` }],
+                        zIndex,
+                        backgroundColor: POSTCARD_PASTELS[i],
+                        width: wrapperW,
+                        height: wrapperH,
+                      },
+                    ]}
+                  >
+                    <Image source={src} style={[styles.postcardImage, { width: imgSize, height: imgSize }]} resizeMode="cover" />
+                  </View>
+                );
+              })}
+              <View style={styles.doveIconWrapOuter}>
+                <View style={styles.doveIconWrap}>
+                  <Ionicons name="paper-plane" size={40} color={colors.blushDark} />
+                </View>
+              </View>
+            </View>
+          </View>
+          <Text style={styles.slideTitle}>{FEATURE_TITLES[0]}</Text>
+          <Text style={styles.slideSubtitle}>Send puffy postcards and little moments. Watch them fly to your person.</Text>
+        </View>
+      );
+    }
+    if (idx === 4) {
+      return (
+        <View style={styles.slide}>
+          <View style={styles.slide2Content}>
+            <View style={styles.locationWeatherRow}>
+              <View style={styles.puffyCard}>
+                <Ionicons name="location" size={28} color={colors.blushDark} />
+                <Text style={styles.puffyCardLabel}>Location</Text>
+              </View>
+              <View style={styles.puffyCard}>
+                <Ionicons name="partly-sunny-outline" size={28} color={colors.skyDark} />
+                <Text style={styles.puffyCardLabel}>Weather</Text>
+              </View>
+            </View>
+            <View style={styles.calendarCountdownRow}>
+              <View style={styles.puffyCardWide}>
+                <Ionicons name="calendar" size={32} color={colors.blushDark} />
+                <Text style={styles.puffyCardLabel}>Shared calendar</Text>
+              </View>
+              <View style={styles.puffyCardWide}>
+                <Text style={styles.countdownBig}>42</Text>
+                <Text style={styles.puffyCardLabel}>days to go</Text>
+              </View>
+            </View>
+          </View>
+          <Text style={styles.slideTitle}>{FEATURE_TITLES[1]}</Text>
+          <Text style={styles.slideSubtitle}>See where they are, what it's like there, and count down until you're together.</Text>
+        </View>
+      );
+    }
+    if (idx === 5) {
+      return (
+        <View style={styles.slide}>
+          <View style={styles.slide3Dashboard}>
+            <View style={styles.widgetRow}>
+              <View style={styles.puffyCard}>
+                <Ionicons name="time-outline" size={28} color={colors.blushDark} />
+                <Text style={styles.puffyCardLabel}>Time</Text>
+              </View>
+              <View style={styles.puffyCard}>
+                <Ionicons name="partly-sunny-outline" size={28} color={colors.skyDark} />
+                <Text style={styles.puffyCardLabel}>Weather</Text>
+              </View>
+              <View style={styles.puffyCard}>
+                <Ionicons name="battery-half-outline" size={28} color={colors.textMuted} />
+                <Text style={styles.puffyCardLabel}>Battery</Text>
+              </View>
+            </View>
+          </View>
+          <Text style={styles.slideTitle}>{FEATURE_TITLES[2]}</Text>
+          <Text style={styles.slideSubtitle}>One cozy home screen. Their time, weather, and battery—always in reach.</Text>
+          <View style={styles.slide3WidgetsAboveCTA}>
+            <View style={styles.miniWidgetRow}>
+              <View style={styles.miniWidget}>
+                <Ionicons name="location" size={20} color={colors.blushDark} />
+                <Text style={styles.miniWidgetText}>Location</Text>
+              </View>
+              <View style={styles.miniWidget}>
+                <Ionicons name="partly-sunny-outline" size={20} color={colors.skyDark} />
+                <Text style={styles.miniWidgetText}>Weather</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      );
+    }
+    // idx === 6
+    return (
+      <View style={styles.slide}>
+        <View style={styles.slideCoupleSubscription}>
+          <View style={styles.coupleSubscriptionRow}>
+            <View style={[styles.puffyCard, styles.coupleSubscriptionCard]}>
+              <Ionicons name="person" size={32} color={colors.blushDark} />
+              <Text style={styles.puffyCardLabel}>You</Text>
+            </View>
+            <View style={styles.coupleSubscriptionHeart}>
+              <Ionicons name="heart" size={36} color={colors.blushDark} />
+            </View>
+            <View style={[styles.puffyCard, styles.coupleSubscriptionCard]}>
+              <Ionicons name="person" size={32} color={colors.blushDark} />
+              <Text style={styles.puffyCardLabel}>Partner</Text>
+            </View>
+          </View>
+          <View style={styles.coupleSubscriptionBadge}>
+            <View style={[styles.puffyCardWide, styles.coupleSubscriptionBadgeCard]}>
+              <Ionicons name="checkmark-circle" size={28} color={colors.blushDark} />
+              <Text style={styles.puffyCardLabel}>One subscription</Text>
+              <Text style={styles.coupleSubscriptionBadgeSub}>covers you both</Text>
+            </View>
+          </View>
+        </View>
+        <Text style={styles.slideTitle}>{FEATURE_TITLES[3]}</Text>
+        <Text style={styles.slideSubtitle}>
+          Only one of you needs to subscribe. When either partner pays, you both get full access—no extra charge.
+        </Text>
+      </View>
+    );
+  }
 
   // —— Intro: app name, icon, animated background, Get Started ——
   if (phase === 'intro') {
@@ -220,243 +442,28 @@ export function OnboardingFlow() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>YOUR STORY BEGINS...</Text>
         <Text style={styles.headerStep}>Step {slideIndex + 1} of {TOTAL_SLIDES}</Text>
-        <SegmentedProgress segments={TOTAL_SLIDES} activeIndex={slideIndex} />
+        <SegmentedProgressBar segments={TOTAL_SLIDES} activeIndex={slideIndex} />
       </View>
 
       <View style={styles.carouselWrap}>
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={(e) => {
-            const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-            setSlideIndex(i);
-          }}
-          style={styles.carouselScroll}
-        >
-          <FlightPathStreak />
-          {/* Slides 0–2: Questionnaire (multi-select) */}
-          {[QUESTION_1, QUESTION_2, QUESTION_3].map((q, qIndex) => {
-            const sel = qIndex === 0 ? situation : qIndex === 1 ? hardestPart : bringsYouHere;
-            const tog = qIndex === 0 ? toggleSituation : qIndex === 1 ? toggleHardestPart : toggleBringsYouHere;
-            return (
-              <View key={qIndex} style={[styles.slide, styles.questionSlide, { width: SCREEN_WIDTH }]}>
-                <Pressable
-                  onPress={() => (qIndex === 0 ? setPhase('intro') : goToSlide(qIndex - 1))}
-                  style={styles.backButton}
-                >
-                  <Ionicons name="arrow-back" size={24} color={colors.text} />
-                </Pressable>
-                <Text style={styles.questionTitle}>{q.heading}</Text>
-                <ScrollView style={styles.pillScroll} contentContainerStyle={styles.pillScrollContent} showsVerticalScrollIndicator={false}>
-                  {q.options.map((opt) => {
-                    const isSelected = sel.includes(opt);
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[styles.pill, isSelected && styles.pillSelected]}
-                        onPress={() => tog(opt)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>{opt}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-                <TouchableOpacity
-                  style={[styles.continueBtn, !(sel.length > 0) && styles.primaryButtonDisabled]}
-                  onPress={() => {
-                    if (qIndex === 2) setOnboardingData({ situation, hardestPart, bringsYouHere });
-                    goToSlide(qIndex + 1);
-                  }}
-                  disabled={sel.length === 0}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.primaryButtonText}>Continue</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          })}
-
-          {/* Slide 3: YOUR FIRST IMPRESSIONS — Hero + Halo puffy postcards */}
-          <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-            <View style={styles.slide1Content}>
-              <View style={styles.collageContainer}>
-                {STOCK_IMAGES.map((src, i) => {
-                  const [top, leftVal, rightVal, rotate, zIndex, isHero] = COLLAGE_LAYOUT[i];
-                  const imgSize = isHero ? HERO_IMAGE_SIZE : CARD_IMAGE_SIZE;
-                  const wrapperW = isHero ? HERO_WRAPPER_W : CARD_WRAPPER_W;
-                  const wrapperH = isHero ? HERO_WRAPPER_H : CARD_WRAPPER_H;
-                  const innerWrapper = (
-                    <View
-                      style={[
-                        styles.postcardWrapper,
-                        styles.postcardWrapperHeroInner,
-                        {
-                          transform: [{ rotate: `${rotate}deg` }],
-                          backgroundColor: POSTCARD_PASTELS[i],
-                          width: wrapperW,
-                          height: wrapperH,
-                        },
-                      ]}
-                    >
-                      <Image
-                        source={src}
-                        style={[styles.postcardImage, { width: imgSize, height: imgSize }]}
-                        resizeMode="cover"
-                      />
-                    </View>
-                  );
-                  if (isHero) {
-                    return (
-                      <View key={i} style={[styles.heroCardOuter, { top, zIndex }]}>
-                        {innerWrapper}
-                      </View>
-                    );
-                  }
-                  const wrapperStyle = [
-                    styles.postcardWrapper,
-                    {
-                      top,
-                      ...(leftVal != null && { left: leftVal }),
-                      ...(rightVal != null && { right: rightVal }),
-                      transform: [{ rotate: `${rotate}deg` }],
-                      zIndex,
-                      backgroundColor: POSTCARD_PASTELS[i],
-                      width: wrapperW,
-                      height: wrapperH,
-                    },
-                  ];
-                  return (
-                    <View key={i} style={wrapperStyle}>
-                      <Image
-                        source={src}
-                        style={[styles.postcardImage, { width: imgSize, height: imgSize }]}
-                        resizeMode="cover"
-                      />
-                    </View>
-                  );
-                })}
-                <View style={styles.doveIconWrapOuter}>
-                  <View style={styles.doveIconWrap}>
-                    <Ionicons name="paper-plane" size={40} color={colors.blushDark} />
-                  </View>
-                </View>
-              </View>
-            </View>
-            <Text style={styles.slideTitle}>{FEATURE_TITLES[0]}</Text>
-            <Text style={styles.slideSubtitle}>
-              Send puffy postcards and little moments. Watch them fly to your person.
-            </Text>
+        <LDRBackground totalSlides={TOTAL_SLIDES} currentSlideIndex={slideIndex} />
+        <View style={styles.slideContainer}>
+          <AnimatedReanimated.View
+            key={slideIndex}
+            entering={slideEntering}
+            exiting={slideExiting}
+            style={styles.slideWrapper}
+          >
+            {renderSlideContent(slideIndex)}
+          </AnimatedReanimated.View>
+        </View>
+        {/* Tap-through overlay only on feature slides 3–5; survey (0–2) and last slide (6) use buttons */}
+        {slideIndex >= 3 && slideIndex < 6 && (
+          <View style={styles.tapOverlay}>
+            <Pressable style={styles.tapZoneLeft} onPress={handleSlideBack} />
+            <Pressable style={styles.tapZoneRight} onPress={handleSlideNext} />
           </View>
-
-          {/* Slide 4: BRIDGE THE DISTANCE */}
-          <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-            <View style={styles.slide2Content}>
-              <View style={styles.locationWeatherRow}>
-                <View style={styles.puffyCard}>
-                  <Ionicons name="location" size={28} color={colors.blushDark} />
-                  <Text style={styles.puffyCardLabel}>Location</Text>
-                </View>
-                <View style={styles.puffyCard}>
-                  <Ionicons name="partly-sunny-outline" size={28} color={colors.skyDark} />
-                  <Text style={styles.puffyCardLabel}>Weather</Text>
-                </View>
-              </View>
-              <View style={styles.calendarCountdownRow}>
-                <View style={styles.puffyCardWide}>
-                  <Ionicons name="calendar" size={32} color={colors.blushDark} />
-                  <Text style={styles.puffyCardLabel}>Shared calendar</Text>
-                </View>
-                <View style={styles.puffyCardWide}>
-                  <Text style={styles.countdownBig}>42</Text>
-                  <Text style={styles.puffyCardLabel}>days to go</Text>
-                </View>
-              </View>
-            </View>
-            <Text style={styles.slideTitle}>{FEATURE_TITLES[1]}</Text>
-            <Text style={styles.slideSubtitle}>
-              See where they are, what it's like there, and count down until you're together.
-            </Text>
-          </View>
-
-          {/* Slide 5: OUR MAGIC */}
-          <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-            <View style={styles.slide3Dashboard}>
-              <View style={styles.widgetRow}>
-                <View style={styles.puffyCard}>
-                  <Ionicons name="time-outline" size={28} color={colors.blushDark} />
-                  <Text style={styles.puffyCardLabel}>Time</Text>
-                </View>
-                <View style={styles.puffyCard}>
-                  <Ionicons name="partly-sunny-outline" size={28} color={colors.skyDark} />
-                  <Text style={styles.puffyCardLabel}>Weather</Text>
-                </View>
-                <View style={styles.puffyCard}>
-                  <Ionicons name="battery-half-outline" size={28} color={colors.textMuted} />
-                  <Text style={styles.puffyCardLabel}>Battery</Text>
-                </View>
-              </View>
-            </View>
-            <Text style={styles.slideTitle}>{FEATURE_TITLES[2]}</Text>
-            <Text style={styles.slideSubtitle}>
-              One cozy home screen. Their time, weather, and battery—always in reach.
-            </Text>
-            <View style={styles.slide3WidgetsAboveCTA}>
-              <View style={styles.miniWidgetRow}>
-                <View style={styles.miniWidget}>
-                  <Ionicons name="location" size={20} color={colors.blushDark} />
-                  <Text style={styles.miniWidgetText}>Location</Text>
-                </View>
-                <View style={styles.miniWidget}>
-                  <Ionicons name="partly-sunny-outline" size={20} color={colors.skyDark} />
-                  <Text style={styles.miniWidgetText}>Weather</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Slide 6: One subscription for the couple — CTAs below */}
-          <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-            <View style={styles.slideCoupleSubscription}>
-              <View style={styles.coupleSubscriptionRow}>
-                <View style={[styles.puffyCard, styles.coupleSubscriptionCard]}>
-                  <Ionicons name="person" size={32} color={colors.blushDark} />
-                  <Text style={styles.puffyCardLabel}>You</Text>
-                </View>
-                <View style={styles.coupleSubscriptionHeart}>
-                  <Ionicons name="heart" size={36} color={colors.blushDark} />
-                </View>
-                <View style={[styles.puffyCard, styles.coupleSubscriptionCard]}>
-                  <Ionicons name="person" size={32} color={colors.blushDark} />
-                  <Text style={styles.puffyCardLabel}>Partner</Text>
-                </View>
-              </View>
-              <View style={styles.coupleSubscriptionBadge}>
-                <View style={[styles.puffyCardWide, styles.coupleSubscriptionBadgeCard]}>
-                  <Ionicons name="checkmark-circle" size={28} color={colors.blushDark} />
-                  <Text style={styles.puffyCardLabel}>One subscription</Text>
-                  <Text style={styles.coupleSubscriptionBadgeSub}>covers you both</Text>
-                </View>
-              </View>
-            </View>
-            <Text style={styles.slideTitle}>{FEATURE_TITLES[3]}</Text>
-            <Text style={styles.slideSubtitle}>
-              Only one of you needs to subscribe. When either partner pays, you both get full access—no extra charge.
-            </Text>
-          </View>
-        </ScrollView>
-
-        <Pressable
-          style={[styles.tapZone, styles.tapZoneLeft]}
-          onPress={handleSlideBack}
-        />
-        <Pressable
-          style={[styles.tapZone, styles.tapZoneRight]}
-          onPress={() => goToSlide(slideIndex + 1)}
-          disabled={slideIndex === TOTAL_SLIDES - 1}
-        />
+        )}
       </View>
 
       {showCTAs && (
@@ -563,41 +570,46 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 5,
     borderRadius: 3,
+    overflow: 'hidden',
+    backgroundColor: colors.blush + '60',
   },
   progressSegmentEmpty: {
     backgroundColor: colors.blush + '60',
   },
-  progressSegmentFilled: {
+  progressSegmentFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    right: 0,
     backgroundColor: colors.blushDark,
+    borderRadius: 3,
   },
   carouselWrap: {
     flex: 1,
     position: 'relative',
   },
-  carouselScroll: {
+  slideContainer: {
     flex: 1,
+    width: '100%',
   },
-  flightPathStreakContainer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    zIndex: -1,
+  slideWrapper: {
+    flex: 1,
+    width: '100%',
   },
-  flightPathSvg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  tapZone: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 80,
+  tapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
     zIndex: 10,
   },
-  tapZoneLeft: { left: 0 },
-  tapZoneRight: { right: 0 },
+  tapZoneLeft: {
+    flex: 0.3,
+    width: '30%',
+  },
+  tapZoneRight: {
+    flex: 0.7,
+    width: '70%',
+  },
   slide: {
     flex: 1,
     paddingHorizontal: 28,
