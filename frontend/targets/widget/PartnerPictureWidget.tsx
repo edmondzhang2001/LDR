@@ -1,5 +1,11 @@
 import { VStack, Text, Spacer } from '@expo/ui/swift-ui';
-import { containerRelativeFrame, padding, font } from '@expo/ui/swift-ui/modifiers';
+import {
+  containerRelativeFrame,
+  padding,
+  font,
+  background,
+  foregroundStyle,
+} from '@expo/ui/swift-ui/modifiers';
 import { createWidget, WidgetBase } from 'expo-widgets';
 
 export type PartnerPictureWidgetProps = {
@@ -21,18 +27,29 @@ const PartnerPictureWidget = (props: WidgetBase<PartnerPictureWidgetProps>) => {
   const partnerTime = p.partnerTime ?? '--:--';
   const partnerWeather = p.partnerWeather ?? '--°';
 
+  // Duva brand colors
+  const bgColor = '#FFF8F5';
+  const textColor = '#8A7878';
+  const subtleTextColor = '#8A7878';
+
   if (hasNewPhoto) {
     return (
       <VStack
         alignment="center"
-        modifiers={[containerRelativeFrame({ axes: 'both' }), padding({ all: 16 })]}
+        modifiers={[
+          containerRelativeFrame({ axes: 'both' }),
+          padding({ all: 16 }),
+          background(bgColor),
+        ]}
       >
         <Spacer />
-        <Text modifiers={[font({ size: 40 })]}>{moodEmoji}</Text>
-        <Text modifiers={[font({ weight: 'medium', size: 15 })]}>
+        <Text modifiers={[font({ size: 40 }), foregroundStyle(textColor)]}>{moodEmoji}</Text>
+        <Text modifiers={[font({ weight: 'bold', size: 15 }), foregroundStyle(textColor)]}>
           A new memory from {partnerName} is waiting...
         </Text>
-        <Text modifiers={[font({ weight: 'bold', size: 14 })]}>Tap to view ✨</Text>
+        <Text modifiers={[font({ weight: 'bold', size: 14 }), foregroundStyle(subtleTextColor)]}>
+          Tap to view ✨
+        </Text>
         <Spacer />
       </VStack>
     );
@@ -41,12 +58,22 @@ const PartnerPictureWidget = (props: WidgetBase<PartnerPictureWidgetProps>) => {
   return (
     <VStack
       alignment="leading"
-      modifiers={[containerRelativeFrame({ axes: 'both' }), padding({ all: 16 })]}
+      modifiers={[
+        containerRelativeFrame({ axes: 'both' }),
+        padding({ all: 16 }),
+        background(bgColor),
+      ]}
     >
-      <Text modifiers={[font({ weight: 'bold', size: 16 })]}>{partnerName}'s Status</Text>
+      <Text modifiers={[font({ weight: 'bold', size: 16 }), foregroundStyle(textColor)]}>
+        {partnerName}'s Status
+      </Text>
       <Spacer />
-      <Text modifiers={[font({ size: 14 })]}>Time: {partnerTime}</Text>
-      <Text modifiers={[font({ size: 14 })]}>Weather: {partnerWeather}</Text>
+      <Text modifiers={[font({ size: 14 }), foregroundStyle(subtleTextColor)]}>
+        Time: {partnerTime}
+      </Text>
+      <Text modifiers={[font({ size: 14 }), foregroundStyle(subtleTextColor)]}>
+        Weather: {partnerWeather}
+      </Text>
     </VStack>
   );
 };
