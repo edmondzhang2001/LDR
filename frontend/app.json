@@ -37,7 +37,21 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-widgets",
+        {
+          "groupIdentifier": "group.com.edmond.duva",
+          "widgets": [
+            {
+              "name": "PartnerPictureWidget",
+              "displayName": "Partner Picture",
+              "description": "Latest picture from your partner",
+              "supportedFamilies": ["systemSmall", "systemMedium", "systemLarge"]
+            }
+          ]
+        }
+      ]
     ]
   }
 }

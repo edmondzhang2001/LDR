@@ -9,6 +9,14 @@ import { useAuthStore } from '../src/store/useAuthStore';
 import { syncSubscription } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
 
+// Load widget and push initial snapshot so home screen widget shows placeholder instead of blank
+let PartnerPictureWidget;
+try {
+  PartnerPictureWidget = require('../targets/widget/PartnerPictureWidget').default;
+} catch {
+  PartnerPictureWidget = null;
+}
+
 function SplashScreen() {
   return (
     <View style={styles.splash}>
@@ -32,6 +40,40 @@ export default function RootLayout() {
   useEffect(() => {
     initAuth();
   }, [initAuth]);
+
+  // Set notification handler when expo-notifications is available (e.g. dev build); no-op in Expo Go if module missing
+  useEffect(() => {
+    try {
+      const Notifications = require('expo-notifications');
+      if (Notifications?.setNotificationHandler) {
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+          }),
+        });
+      }
+    } catch (_) {
+      // Native module (ExpoPushTokenManager) not available in this environment
+    }
+  }, []);
+
+  // Push initial widget snapshot on mount so the widget has content (placeholder) to show
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    if (PartnerPictureWidget?.updateSnapshot) {
+      try {
+        PartnerPictureWidget.updateSnapshot({
+          partnerName: 'Your partner',
+          moodEmoji: '💭',
+          hasNewPhoto: false,
+          partnerTime: '--:--',
+          partnerWeather: '--°',
+        });
+      } catch (_) {}
+    }
+  }, []);
 
   const setHasPremiumAccessOptimistic = useAuthStore((s) => s.setHasPremiumAccessOptimistic);
 

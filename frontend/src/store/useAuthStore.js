@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood } from '../lib/api';
+import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood, updatePushToken } from '../lib/api';
+import { registerForPushNotificationsAsync } from '../lib/pushNotifications';
+
+let PartnerPictureWidget;
+try {
+  PartnerPictureWidget = require('../../targets/widget/PartnerPictureWidget').default;
+} catch {
+  PartnerPictureWidget = null;
+}
 
 const TOKEN_KEY = 'ldr_token';
 const USER_KEY = 'ldr_user';
@@ -124,6 +132,10 @@ export const useAuthStore = create((set, get) => {
               const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
               if (tz) await updateSettings({ timezone: tz });
             } catch (_) {}
+            // Register for push and send token to backend
+            registerForPushNotificationsAsync().then((token) => {
+              if (token) updatePushToken(token).catch(() => {});
+            });
           } else {
             set({ sessionVerified: true });
           }
@@ -134,6 +146,18 @@ export const useAuthStore = create((set, get) => {
         }
       } finally {
         set({ isAuthLoading: false });
+        // Push an initial widget snapshot so the home screen widget shows the placeholder instead of blank
+        if (PartnerPictureWidget?.updateSnapshot) {
+          try {
+            PartnerPictureWidget.updateSnapshot({
+              partnerName: 'Your partner',
+              moodEmoji: '💭',
+              hasNewPhoto: false,
+              partnerTime: '--:--',
+              partnerWeather: '--°',
+            });
+          } catch (_) {}
+        }
       }
     },
 
@@ -163,6 +187,10 @@ export const useAuthStore = create((set, get) => {
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
       setApiToken(data.token);
       set({ token: data.token, user, partnerId: user.partnerId });
+      // Register for push and send token to backend
+      registerForPushNotificationsAsync().then((token) => {
+        if (token) updatePushToken(token).catch(() => {});
+      });
     },
 
     /** Fetch partner profile (GET /api/user/partner) and save to store. */
@@ -189,6 +217,41 @@ export const useAuthStore = create((set, get) => {
             }
           : null;
         set({ partner });
+        const photos = partner?.photos ?? [];
+        const latestPhoto =
+          photos.length > 0
+            ? [...photos].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0]
+            : null;
+        let hasFreshPhoto = false;
+        if (latestPhoto && latestPhoto.createdAt) {
+          const photoTime = new Date(latestPhoto.createdAt).getTime();
+          const now = Date.now();
+          const isExpired = now - photoTime > 24 * 60 * 60 * 1000;
+          hasFreshPhoto = !isExpired;
+        }
+        if (PartnerPictureWidget?.updateSnapshot) {
+          try {
+            const tz = partner?.timezone || 'UTC';
+            const formattedTime =
+              typeof Intl !== 'undefined' && Intl.DateTimeFormat
+                ? new Intl.DateTimeFormat('en-US', {
+                    timeZone: tz,
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  }).format(new Date())
+                : '--';
+            PartnerPictureWidget.updateSnapshot({
+              partnerName: partner?.name || 'Your partner',
+              moodEmoji: partner?.mood?.emoji || '💭',
+              hasNewPhoto: hasFreshPhoto,
+              partnerTime: formattedTime,
+              partnerWeather: partner?.location?.weather ?? '--°',
+            });
+          } catch (e) {
+            console.error('Failed to update widget:', e);
+          }
+        }
         return partner;
       } catch {
         return null;
