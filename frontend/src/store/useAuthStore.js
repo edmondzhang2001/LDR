@@ -264,15 +264,21 @@ export const useAuthStore = create((set, get) => {
         }
         const activePhotoUrl = latestPhoto?.thumbnailUrl || latestPhoto?.url;
         try {
-          if (activePhotoUrl) {
-            const sharedPath = getAppGroupDirectory('group.com.edmond.duva');
-            if (sharedPath) {
+          const sharedPath = getAppGroupDirectory('group.com.edmond.duva');
+          if (sharedPath) {
+            const stats = {
+              name: partner?.name ?? null,
+              streak: partner?.streak ?? 0,
+            };
+            await FileSystem.writeAsStringAsync(
+              `file://${sharedPath}/stats.json`,
+              JSON.stringify(stats)
+            );
+            if (activePhotoUrl) {
               const localUri = `file://${sharedPath}/current_widget_photo.jpg`;
               await FileSystem.downloadAsync(activePhotoUrl, localUri);
-              reloadWidget();
-            } else {
-              reloadWidget();
             }
+            reloadWidget();
           } else {
             reloadWidget();
           }
