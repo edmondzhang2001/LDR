@@ -39,5 +39,19 @@ yarn-error.*
 *.tsbuildinfo
 
 # generated native folders
-/ios
 /android
+
+# Ignore CocoaPods dependencies (these are redownloaded via 'pod install')
+ios/Pods/
+
+# Ignore compiled build files
+ios/build/
+ios/Index/
+
+# Ignore Xcode user-specific workspace settings and window states
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Ignore local Expo env files
+.xcode.env.local
