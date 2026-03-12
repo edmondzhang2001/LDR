@@ -1,8 +1,23 @@
+const crypto = require('crypto');
 const express = require('express');
+const sharp = require('sharp');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { requireAuth } = require('../middleware/auth');
 const User = require('../models/User');
 
 const router = express.Router();
+const BUCKET = process.env.S3_BUCKET_NAME || 'ldr-uploads';
+const REGION = process.env.AWS_REGION || 'us-east-1';
+const s3Client =
+  process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+    ? new S3Client({
+        region: REGION,
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
+      })
+    : null;
 
 /** GET /api/user/partner — fetch current user's partner profile (safe fields only). */
 router.get('/partner', requireAuth, async (req, res) => {
@@ -29,7 +44,12 @@ router.get('/partner', requireAuth, async (req, res) => {
     const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const partnerPhotos = (partner.photos || [])
       .filter((p) => new Date(p.createdAt) >= cutoff24h)
-      .map((p) => ({ url: p.url, createdAt: new Date(p.createdAt).toISOString(), caption: p.caption || '' }));
+      .map((p) => ({
+        url: p.url,
+        thumbnailUrl: p.thumbnailUrl || undefined,
+        createdAt: new Date(p.createdAt).toISOString(),
+        caption: p.caption || '',
+      }));
     res.json({
       partner: {
         id: partner._id,
@@ -66,7 +86,7 @@ router.get('/partner', requireAuth, async (req, res) => {
   }
 });
 
-/** POST /api/user/photo — add a photo URL to the user's Daily Story (after S3 upload). */
+/** POST /api/user/photo — add a photo URL to the user's Daily Story (after S3 upload). Generates widget thumbnail and uploads to S3. */
 router.post('/photo', requireAuth, async (req, res) => {
   try {
     const { url, caption } = req.body;
@@ -77,13 +97,45 @@ router.post('/photo', requireAuth, async (req, res) => {
       typeof caption === 'string' && caption.trim()
         ? caption.trim().slice(0, 60)
         : '';
+    const photoUrl = url.trim();
     req.user.photos = req.user.photos || [];
-    req.user.photos.push({ url: url.trim(), createdAt: new Date(), caption: captionStr });
+    req.user.photos.push({ url: photoUrl, createdAt: new Date(), caption: captionStr });
+    let thumbnailUrl = null;
+    if (s3Client) {
+      try {
+        const imageRes = await fetch(photoUrl);
+        if (imageRes.ok) {
+          const buffer = Buffer.from(await imageRes.arrayBuffer());
+          const thumbBuffer = await sharp(buffer)
+            .resize(500, 500, { fit: 'cover' })
+            .jpeg({ quality: 80 })
+            .toBuffer();
+          const thumbKey = `photos/${req.user._id}/${Date.now()}-${crypto.randomUUID()}_thumb.jpg`;
+          await s3Client.send(
+            new PutObjectCommand({
+              Bucket: BUCKET,
+              Key: thumbKey,
+              Body: thumbBuffer,
+              ContentType: 'image/jpeg',
+            })
+          );
+          thumbnailUrl = `https://${BUCKET}.s3.${REGION}.amazonaws.com/${thumbKey}`;
+          req.user.photos[req.user.photos.length - 1].thumbnailUrl = thumbnailUrl;
+        }
+      } catch (thumbErr) {
+        console.error('[photo thumbnail]', thumbErr?.message || thumbErr);
+      }
+    }
     await req.user.save();
     const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const photos = (req.user.photos || [])
       .filter((p) => new Date(p.createdAt) >= cutoff24h)
-      .map((p) => ({ url: p.url, createdAt: p.createdAt.toISOString(), caption: p.caption || '' }));
+      .map((p) => ({
+        url: p.url,
+        thumbnailUrl: p.thumbnailUrl || undefined,
+        createdAt: p.createdAt.toISOString(),
+        caption: p.caption || '',
+      }));
     res.json({ photos });
   } catch (err) {
     res.status(500).json({ error: err.message });

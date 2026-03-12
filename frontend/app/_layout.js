@@ -8,6 +8,7 @@ import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker'
 import { useAuthStore } from '../src/store/useAuthStore';
 import { syncSubscription } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
+import { registerBackgroundWidgetTask } from '../src/lib/backgroundWidgetTask';
 
 // Load widget and push initial snapshot so home screen widget shows placeholder instead of blank
 let PartnerPictureWidget;
@@ -57,6 +58,13 @@ export default function RootLayout() {
     } catch (_) {
       // Native module (ExpoPushTokenManager) not available in this environment
     }
+  }, []);
+
+  // Register background task for widget update on silent push (new photo)
+  useEffect(() => {
+    try {
+      registerBackgroundWidgetTask();
+    } catch (_) {}
   }, []);
 
   // Push initial widget snapshot on mount so the widget has content (placeholder) to show

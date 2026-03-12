@@ -75,6 +75,7 @@ const userSchema = new mongoose.Schema(
     photos: [
       {
         url: { type: String, required: true },
+        thumbnailUrl: { type: String, default: null },
         createdAt: { type: Date, default: Date.now },
         caption: { type: String, maxLength: [60, 'Captions can be max 60 characters.'], default: '' },
       },

@@ -1,7 +1,17 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import * as FileSystem from 'expo-file-system/legacy';
 import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood, updatePushToken } from '../lib/api';
 import { registerForPushNotificationsAsync } from '../lib/pushNotifications';
+let getAppGroupDirectory = () => null;
+let reloadWidget = () => {};
+try {
+  const shared = require('../../modules/shared-storage');
+  getAppGroupDirectory = shared.getAppGroupDirectory;
+  reloadWidget = shared.reloadWidget;
+} catch {
+  // shared-storage is iOS-only; no-op on web/Android
+}
 
 let PartnerPictureWidget;
 try {
@@ -251,6 +261,24 @@ export const useAuthStore = create((set, get) => {
           } catch (e) {
             console.error('Failed to update widget:', e);
           }
+        }
+        const activePhotoUrl = latestPhoto?.thumbnailUrl || latestPhoto?.url;
+        try {
+          if (activePhotoUrl) {
+            const sharedPath = getAppGroupDirectory('group.com.edmond.duva');
+            if (sharedPath) {
+              const localUri = `file://${sharedPath}/current_widget_photo.jpg`;
+              await FileSystem.downloadAsync(activePhotoUrl, localUri);
+              reloadWidget();
+            } else {
+              reloadWidget();
+            }
+          } else {
+            reloadWidget();
+          }
+        } catch (e) {
+          console.error('Widget photo download:', e?.message || e);
+          reloadWidget();
         }
         return partner;
       } catch {
