@@ -11,7 +11,8 @@ import SwiftUI
 @main
 struct DuvaImageWidgetBundle: WidgetBundle {
     var body: some Widget {
-        DuvaImageWidget()
-        DuvaImageWidgetControl()
+      DuvaImageWidget()
+      DuvaStatsWidget()
+      DuvaCalendarWidget()
     }
 }

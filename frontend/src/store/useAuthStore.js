@@ -49,6 +49,47 @@ function normalizeReunion(reunion) {
   };
 }
 
+/** Write stats.json and calendar.json to App Group and reload widgets. Uses reunion.startDate for calendar; partner for stats. */
+async function writeWidgetData(partner, reunion) {
+  try {
+    const sharedPath = getAppGroupDirectory('group.com.edmond.duva');
+    if (!sharedPath) {
+      reloadWidget();
+      return;
+    }
+    const baseUri = `file://${sharedPath}`;
+    const lastActive =
+      partner?.lastActive ??
+      (partner?.lastUpdatedDataAt ? new Date(partner.lastUpdatedDataAt).toISOString() : null);
+    const statsPayload = {
+      name: partner?.name ?? null,
+      streak: partner?.streak ?? 0,
+      lastActive,
+    };
+    await FileSystem.writeAsStringAsync(
+      `${baseUri}/stats.json`,
+      JSON.stringify(statsPayload)
+    );
+    const startDate = reunion?.startDate ? new Date(reunion.startDate) : null;
+    const now = new Date();
+    const daysRemaining =
+      startDate && startDate > now
+        ? Math.max(0, Math.floor((startDate - now) / (24 * 60 * 60 * 1000)))
+        : null;
+    const location =
+      partner?.meetingLocation ?? partner?.location?.city ?? null;
+    const calendarPayload = { daysRemaining, location };
+    await FileSystem.writeAsStringAsync(
+      `${baseUri}/calendar.json`,
+      JSON.stringify(calendarPayload)
+    );
+    reloadWidget();
+  } catch (e) {
+    console.error('Widget data write:', e?.message || e);
+    reloadWidget();
+  }
+}
+
 export const useAuthStore = create((set, get) => {
   /** Clears all auth state and stored tokens; use when session is invalid or user logs out. */
   const logout = () => {
@@ -217,6 +258,9 @@ export const useAuthStore = create((set, get) => {
               location: data.partner.location,
               batteryLevel: data.partner.batteryLevel ?? null,
               lastUpdatedDataAt: data.partner.lastUpdatedDataAt ?? null,
+              lastActive: data.partner.lastActive ?? null,
+              nextMeetingDate: data.partner.nextMeetingDate ?? null,
+              meetingLocation: data.partner.meetingLocation ?? undefined,
               reunion: normalizeReunion(data.partner.reunion),
               photos: Array.isArray(data.partner.photos) ? data.partner.photos : [],
               timezone: data.partner.timezone ?? undefined,
@@ -262,26 +306,15 @@ export const useAuthStore = create((set, get) => {
             console.error('Failed to update widget:', e);
           }
         }
+        await writeWidgetData(partner, partner?.reunion ?? null);
         const activePhotoUrl = latestPhoto?.thumbnailUrl || latestPhoto?.url;
         try {
           const sharedPath = getAppGroupDirectory('group.com.edmond.duva');
-          if (sharedPath) {
-            const stats = {
-              name: partner?.name ?? null,
-              streak: partner?.streak ?? 0,
-            };
-            await FileSystem.writeAsStringAsync(
-              `file://${sharedPath}/stats.json`,
-              JSON.stringify(stats)
-            );
-            if (activePhotoUrl) {
-              const localUri = `file://${sharedPath}/current_widget_photo.jpg`;
-              await FileSystem.downloadAsync(activePhotoUrl, localUri);
-            }
-            reloadWidget();
-          } else {
-            reloadWidget();
+          if (sharedPath && activePhotoUrl) {
+            const localUri = `file://${sharedPath}/current_widget_photo.jpg`;
+            await FileSystem.downloadAsync(activePhotoUrl, localUri);
           }
+          reloadWidget();
         } catch (e) {
           console.error('Widget photo download:', e?.message || e);
           reloadWidget();
@@ -309,8 +342,9 @@ export const useAuthStore = create((set, get) => {
         user: state.user ? { ...state.user, reunion } : null,
         partner: state.partner ? { ...state.partner, reunion } : null,
       }));
-      const { user } = get();
+      const { user, partner } = get();
       if (user) SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+      await writeWidgetData(partner, reunion);
       return reunion;
     },
 
@@ -321,8 +355,9 @@ export const useAuthStore = create((set, get) => {
         user: state.user ? { ...state.user, reunion: null } : null,
         partner: state.partner ? { ...state.partner, reunion: null } : null,
       }));
-      const { user } = get();
+      const { user, partner } = get();
       if (user) SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+      await writeWidgetData(partner, null);
     },
 
     /** Register a photo URL and optional caption after S3 upload; updates user.photos in store. */
