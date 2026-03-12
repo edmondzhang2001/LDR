@@ -340,7 +340,17 @@ export default function HomeScreen() {
             </Card>
           </View>
 
-          {/* Row 2: Battery */}
+          
+
+          {/* Row 2b: Distance apart */}
+          <Card style={styles.distanceCard}>
+            <Ionicons name="navigate" size={22} color={colors.blushDark} />
+            <Text style={styles.halfCardTitle}>Distance apart</Text>
+            <Text style={styles.distanceValue}>
+              {distanceKm != null ? `${distanceKm} km` : '—'}
+            </Text>
+          </Card>
+
           <Card style={styles.batteryCard}>
             <View style={styles.batteryRow}>
               <Ionicons name={batteryIcon} size={24} color={batteryColor} />
@@ -352,12 +362,11 @@ export default function HomeScreen() {
             <Text style={styles.batteryLabel}>Partner's battery</Text>
           </Card>
 
-          {/* Row 3: Reunion (editable) + distance */}
+          {/* Row 3: Reunion (editable) */}
           <ReunionCard
             reunion={user.reunion}
             saveReunion={saveReunion}
             endReunion={endReunion}
-            distanceKm={distanceKm}
           />
 
           <Pressable style={({ pressed }) => [styles.signOutButton, pressed && styles.signOutButtonPressed]} onPress={logout}>
@@ -600,6 +609,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
     marginTop: 6,
+  },
+  distanceCard: {
+    paddingVertical: 16,
+    paddingHorizontal: 22,
+  },
+  distanceValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 4,
   },
   signOutButton: {
     flexDirection: 'row',
