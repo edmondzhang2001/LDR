@@ -17,6 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { colors } from '../src/theme/colors';
+import AppleAuthButton from '../src/components/AppleAuthButton';
 
 // Configure Google Sign-In. On iOS both webClientId and iosClientId are required (no GoogleService-Info.plist).
 // Get them from Google Cloud Console: create OAuth 2.0 Client IDs (Web + iOS). Backend uses webClientId to verify the token.
@@ -43,6 +44,7 @@ const SHADOW = {
 
 export default function AuthScreen() {
   const router = useRouter();
+  const signInWithApple = useAuthStore((s) => s.signInWithApple);
   const signInWithOAuth = useAuthStore((s) => s.signInWithOAuth);
   const refreshUser = useAuthStore((s) => s.refreshUser);
   const [loading, setLoading] = useState(null);
@@ -59,22 +61,7 @@ export default function AuthScreen() {
     setError('');
     setLoading('apple');
     try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-      if (!credential.identityToken) {
-        throw new Error('No identity token from Apple');
-      }
-      const fullName =
-        credential.fullName &&
-        [credential.fullName.givenName, credential.fullName.familyName]
-          .filter(Boolean)
-          .join(' ')
-          .trim();
-      await signInWithOAuth('apple', credential.identityToken, fullName || undefined);
+      await signInWithApple();
       await refreshUser();
       const mongoUserId = useAuthStore.getState().user?.id;
       if (Purchases && mongoUserId) {
@@ -82,7 +69,6 @@ export default function AuthScreen() {
           await Purchases.logIn(mongoUserId);
         } catch (_) {}
       }
-      // Route to app; index will send non‑premium users to paywall screen (where they can subscribe or enter partner code).
       router.replace('/');
     } catch (err) {
       if (err.code === 'ERR_REQUEST_CANCELED') {
@@ -162,21 +148,11 @@ export default function AuthScreen() {
 
       <View style={styles.buttons}>
         {Platform.OS === 'ios' && appleAvailable && (
-          <TouchableOpacity
-            style={[styles.btn, styles.appleBtn]}
+          <AppleAuthButton
             onPress={handleAppleSignIn}
             disabled={busy}
-            activeOpacity={0.85}
-          >
-            {loading === 'apple' ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <>
-                <Ionicons name="logo-apple" size={24} color={colors.white} />
-                <Text style={styles.appleBtnText}>Sign in with Apple</Text>
-              </>
-            )}
-          </TouchableOpacity>
+            style={styles.appleAuthButton}
+          />
         )}
 
         <TouchableOpacity
@@ -237,6 +213,10 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   buttons: { gap: 16 },
+  appleAuthButton: {
+    height: 58,
+    width: '100%',
+  },
   btn: {
     flexDirection: 'row',
     alignItems: 'center',

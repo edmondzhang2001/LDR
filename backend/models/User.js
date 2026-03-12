@@ -18,6 +18,12 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    appleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      default: null,
+    },
     name: {
       type: String,
       trim: true,

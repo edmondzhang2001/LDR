@@ -19,6 +19,13 @@ const s3Client =
       })
     : null;
 
+function sanitizeFilename(name) {
+  if (typeof name !== 'string' || !name.trim()) return null;
+  const basename = name.replace(/^.*[/\\]/, '').trim();
+  const safe = basename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+  return safe || 'file';
+}
+
 router.post('/presigned-url', requireAuth, async (req, res) => {
   try {
     if (!s3Client) {
@@ -30,7 +37,12 @@ router.post('/presigned-url', requireAuth, async (req, res) => {
         error: 'filename and contentType are required',
       });
     }
-    const key = `uploads/${req.user._id}/${Date.now()}-${filename}`;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(contentType)) {
+      return res.status(400).json({ error: 'contentType not allowed' });
+    }
+    const safeName = sanitizeFilename(filename);
+    const key = `uploads/${req.user._id}/${Date.now()}-${safeName}`;
     const command = new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,

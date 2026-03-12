@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood, updatePushToken } from '../lib/api';
 import { registerForPushNotificationsAsync } from '../lib/pushNotifications';
 let getAppGroupDirectory = () => null;
@@ -242,6 +243,56 @@ export const useAuthStore = create((set, get) => {
       registerForPushNotificationsAsync().then((token) => {
         if (token) updatePushToken(token).catch(() => {});
       });
+    },
+
+    /**
+     * Sign in with Apple: runs native Apple flow, then POSTs to backend and saves token/user.
+     * Apple returns fullName and email only on the first successful login; we send them when present.
+     */
+    signInWithApple: async () => {
+      try {
+        const credential = await AppleAuthentication.signInAsync({
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
+        });
+        if (!credential.identityToken) {
+          throw new Error('No identity token from Apple');
+        }
+        const fullName =
+          credential.fullName &&
+          [credential.fullName.givenName, credential.fullName.familyName]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+        const email =
+          typeof credential.email === 'string' && credential.email.trim()
+            ? credential.email.trim()
+            : undefined;
+        const body = {
+          provider: 'apple',
+          identityToken: credential.identityToken,
+        };
+        if (fullName) body.name = fullName;
+        if (email) body.email = email;
+        const { data } = await api.post('/auth/oauth', body);
+        const user = normalizeUser(data.user);
+        await SecureStore.setItemAsync(TOKEN_KEY, data.token);
+        await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+        setApiToken(data.token);
+        set({ token: data.token, user, partnerId: user.partnerId ?? null });
+        registerForPushNotificationsAsync().then((token) => {
+          if (token) updatePushToken(token).catch(() => {});
+        });
+      } catch (err) {
+        if (err.code === 'ERR_REQUEST_CANCELED') {
+          const cancelError = new Error('Sign in canceled');
+          cancelError.code = 'ERR_REQUEST_CANCELED';
+          throw cancelError;
+        }
+        throw err;
+      }
     },
 
     /** Fetch partner profile (GET /api/user/partner) and save to store. */

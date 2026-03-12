@@ -5,6 +5,7 @@ const appleSignin = require('apple-signin-auth');
 const User = require('../models/User');
 const { JWT_SECRET } = require('../config');
 const { requireAuth } = require('../middleware/auth');
+const authController = require('../controllers/authController');
 
 const router = express.Router();
 const googleClient = process.env.GOOGLE_CLIENT_ID
@@ -88,9 +89,11 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
+router.post('/apple', authController.appleLogin);
+
 router.post('/oauth', async (req, res) => {
   try {
-    const { identityToken, provider, name: nameFromClient } = req.body;
+    const { identityToken, provider, name: nameFromClient, email: emailFromClient } = req.body;
     console.log('POST /oauth received, provider:', provider);
     if (!identityToken || typeof identityToken !== 'string') {
       return res.status(400).json({ error: 'identityToken is required' });
@@ -124,7 +127,10 @@ router.post('/oauth', async (req, res) => {
     }
 
     const oauthId = payload.sub;
-    const email = payload.email || null;
+    const email =
+      payload.email ||
+      (typeof emailFromClient === 'string' && emailFromClient.trim() ? emailFromClient.trim() : null) ||
+      null;
     const nameToSave =
       typeof nameFromClient === 'string' && nameFromClient.trim()
         ? nameFromClient.trim()

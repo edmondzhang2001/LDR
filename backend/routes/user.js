@@ -218,12 +218,38 @@ router.put('/mood', requireAuth, async (req, res) => {
   }
 });
 
-/** POST /api/user/sync-subscription — set isPremium true for the authenticated user (MVP: trust client; used when RC SDK says user has entitlement but webhook missed). */
+/** POST /api/user/sync-subscription — sync isPremium from RevenueCat (used when webhook missed). Verifies entitlement server-side; does not trust client. */
 router.post('/sync-subscription', requireAuth, async (req, res) => {
   try {
-    req.user.isPremium = true;
+    const apiKey = process.env.REVENUECAT_API_KEY;
+    if (!apiKey) {
+      return res.status(503).json({ error: 'Subscription sync not configured' });
+    }
+    const appUserId = String(req.user._id);
+    const response = await fetch(
+      `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(appUserId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: 'application/json',
+        },
+      }
+    );
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('[sync-subscription] RevenueCat API error', response.status, text);
+      return res.status(502).json({ error: 'Could not verify subscription' });
+    }
+    const data = await response.json();
+    const entitlements = data?.subscriber?.entitlements ?? {};
+    const now = new Date();
+    const hasPremium = Object.values(entitlements).some((e) => {
+      const exp = e?.expires_date ?? e?.expiration_date;
+      return exp && new Date(exp) > now;
+    });
+    req.user.isPremium = !!hasPremium;
     await req.user.save();
-    res.json({ ok: true });
+    res.json({ ok: true, isPremium: req.user.isPremium });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
