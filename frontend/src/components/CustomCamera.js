@@ -121,6 +121,9 @@ export function CustomCamera({ onPhotoCaptured, onClose }) {
             <CameraView ref={cameraRef} style={styles.viewfinderCamera} facing={facing} />
           )}
         </View>
+        <View style={styles.polaroidChin}>
+          <Ionicons name="heart" size={22} color={colors.blushDark} />
+        </View>
       </View>
 
       {previewImage ? (
@@ -185,21 +188,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   polaroidCard: {
-    backgroundColor: colors.white,
+    backgroundColor: 'white',
     padding: 16,
     paddingBottom: 60,
+    borderRadius: 12,
     width: '88%',
     maxWidth: 400,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
     elevation: 5,
   },
   polaroidHole: {
     width: '100%',
     aspectRatio: 1,
     overflow: 'hidden',
+  },
+  polaroidChin: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   polaroidImage: {
     flex: 1,

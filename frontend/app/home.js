@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert, Modal, TextInput, Image, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert, Modal, TextInput, Image, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as Battery from 'expo-battery';
@@ -377,37 +377,42 @@ export default function HomeScreen() {
       />
 
       <Modal visible={!!uploadPreviewUri && !isAnimatingSend} transparent animationType="slide">
-        <View style={styles.uploadModalBackdrop}>
-          <View style={styles.uploadModalSheet}>
-            <Text style={styles.uploadModalTitle}>Add to Daily Story</Text>
-            <Image source={{ uri: uploadPreviewUri }} style={styles.uploadPreviewImage} resizeMode="cover" />
-            <Text style={styles.uploadCaptionLabel}>Caption (optional)</Text>
-            <TextInput
-              style={styles.uploadCaptionInput}
-              placeholder="Say something about this photo..."
-              placeholderTextColor={colors.textMuted}
-              value={uploadCaption}
-              onChangeText={(t) => setUploadCaption(t.slice(0, CAPTION_MAX))}
-              maxLength={CAPTION_MAX}
-            />
-            <Text style={styles.uploadCharCount}>{uploadCaption.length}/{CAPTION_MAX}</Text>
-            <View style={styles.uploadModalButtons}>
-              <Pressable
-                style={({ pressed }) => [styles.uploadCancelButton, pressed && styles.uploadButtonPressed]}
-                onPress={() => { setUploadPreviewUri(null); setUploadCaption(''); }}
-              >
-                <Text style={styles.uploadCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.uploadConfirmButton, pressed && styles.uploadButtonPressed]}
-                onPress={handleSendPhoto}
-                disabled={isAnimatingSend || isSendingPhoto}
-              >
-                <Text style={styles.uploadConfirmText}>Send</Text>
-              </Pressable>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.uploadModalBackdrop}>
+            <View style={styles.uploadModalSheet}>
+              <Text style={styles.uploadModalTitle}>Add to Daily Story</Text>
+              <Image source={{ uri: uploadPreviewUri }} style={styles.uploadPreviewImage} resizeMode="cover" />
+              <Text style={styles.uploadCaptionLabel}>Caption (optional)</Text>
+              <TextInput
+                style={styles.uploadCaptionInput}
+                placeholder="Say something about this photo..."
+                placeholderTextColor={colors.textMuted}
+                value={uploadCaption}
+                onChangeText={(t) => setUploadCaption(t.slice(0, CAPTION_MAX))}
+                maxLength={CAPTION_MAX}
+              />
+              <Text style={styles.uploadCharCount}>{uploadCaption.length}/{CAPTION_MAX}</Text>
+              <View style={styles.uploadModalButtons}>
+                <Pressable
+                  style={({ pressed }) => [styles.uploadCancelButton, pressed && styles.uploadButtonPressed]}
+                  onPress={() => { setUploadPreviewUri(null); setUploadCaption(''); }}
+                >
+                  <Text style={styles.uploadCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.uploadConfirmButton, pressed && styles.uploadButtonPressed]}
+                  onPress={handleSendPhoto}
+                  disabled={isAnimatingSend || isSendingPhoto}
+                >
+                  <Text style={styles.uploadConfirmText}>Send</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <DoveCarryOverlay
@@ -686,7 +691,7 @@ const styles = StyleSheet.create({
   },
   uploadPreviewImage: {
     width: '100%',
-    aspectRatio: 4 / 3,
+    aspectRatio: 1,
     borderRadius: 12,
     backgroundColor: colors.background,
     marginBottom: 16,
