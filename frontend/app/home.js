@@ -12,6 +12,7 @@ import { PostcardStack } from '../src/components/PostcardStack';
 import { PolaroidStack } from '../src/components/PolaroidStack';
 import { MoodEditorModal } from '../src/components/MoodEditorModal';
 import { DoveCarryOverlay } from '../src/components/DoveCarryOverlay';
+import { CustomCamera } from '../src/components/CustomCamera';
 import { updateLocation, updateBattery, getPresignedPhotoUrl } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
 import { fetchWeatherAt, weatherIconToIonicons } from '../src/utils/weather';
@@ -29,6 +30,7 @@ export default function HomeScreen() {
   const [uploadPreviewUri, setUploadPreviewUri] = useState(null);
   const [uploadCaption, setUploadCaption] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [showCustomCamera, setShowCustomCamera] = useState(false);
   const CAPTION_MAX = 60;
 
   const onRefresh = async () => {
@@ -215,16 +217,7 @@ export default function HomeScreen() {
         },
         {
           text: 'Camera',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== 'granted') return;
-            const result = await ImagePicker.launchCameraAsync({
-              quality: 0.5,
-              allowsEditing: false,
-            });
-            if (result.canceled || !result.assets?.[0]?.uri) return;
-            openUploadWithPreview(result.assets[0].uri);
-          },
+          onPress: () => setShowCustomCamera(true),
         },
         { text: 'Cancel', style: 'cancel' },
       ]
@@ -425,6 +418,16 @@ export default function HomeScreen() {
         onUploadRequest={() => performUpload(uploadPreviewUri, uploadCaption)}
         onDone={handleDoveOverlayDone}
       />
+
+      <Modal visible={showCustomCamera} animationType="slide" statusBarTranslucent>
+        <CustomCamera
+          onClose={() => setShowCustomCamera(false)}
+          onPhotoCaptured={(uri) => {
+            openUploadWithPreview(uri);
+            setShowCustomCamera(false);
+          }}
+        />
+      </Modal>
 
       <Pressable
         style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}

@@ -38,12 +38,16 @@ PODS:
     - ExpoModulesCore
     - GoogleSignIn (~> 7.1)
     - React-Core
-  - ExpoAppleAuthentication (7.2.4):
+  - ExpoAppleAuthentication (55.0.8):
     - ExpoModulesCore
   - ExpoAsset (55.0.8):
     - ExpoModulesCore
   - ExpoBattery (55.0.8):
     - ExpoModulesCore
+  - ExpoCamera (55.0.9):
+    - ExpoModulesCore
+    - ZXingObjC/OneD
+    - ZXingObjC/PDF417
   - ExpoDevice (55.0.9):
     - ExpoModulesCore
   - ExpoDomWebView (55.0.3):
@@ -61,6 +65,9 @@ PODS:
     - SDWebImageAVIFCoder (~> 0.11.0)
     - SDWebImageSVGCoder (~> 1.7.0)
     - SDWebImageWebPCoder (~> 0.14.6)
+  - ExpoImageManipulator (55.0.10):
+    - ExpoModulesCore
+    - SDWebImageWebPCoder
   - ExpoImagePicker (55.0.11):
     - ExpoModulesCore
   - ExpoKeepAwake (55.0.4):
@@ -2305,6 +2312,11 @@ PODS:
     - ExpoModulesCore
   - UMAppLoader (55.0.2)
   - Yoga (0.0.0)
+  - ZXingObjC/Core (3.6.9)
+  - ZXingObjC/OneD (3.6.9):
+    - ZXingObjC/Core
+  - ZXingObjC/PDF417 (3.6.9):
+    - ZXingObjC/Core
 
 DEPENDENCIES:
   - EXApplication (from `../node_modules/expo-application/ios`)
@@ -2314,12 +2326,14 @@ DEPENDENCIES:
   - ExpoAppleAuthentication (from `../node_modules/expo-apple-authentication/ios`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
   - ExpoBattery (from `../node_modules/expo-battery/ios`)
+  - ExpoCamera (from `../node_modules/expo-camera/ios`)
   - ExpoDevice (from `../node_modules/expo-device/ios`)
   - "ExpoDomWebView (from `../node_modules/@expo/dom-webview/ios`)"
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
   - ExpoGlassEffect (from `../node_modules/expo-glass-effect/ios`)
   - ExpoImage (from `../node_modules/expo-image/ios`)
+  - ExpoImageManipulator (from `../node_modules/expo-image-manipulator/ios`)
   - ExpoImagePicker (from `../node_modules/expo-image-picker/ios`)
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
@@ -2437,6 +2451,7 @@ SPEC REPOS:
     - SDWebImageAVIFCoder
     - SDWebImageSVGCoder
     - SDWebImageWebPCoder
+    - ZXingObjC
 
 EXTERNAL SOURCES:
   EXApplication:
@@ -2453,6 +2468,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-asset/ios"
   ExpoBattery:
     :path: "../node_modules/expo-battery/ios"
+  ExpoCamera:
+    :path: "../node_modules/expo-camera/ios"
   ExpoDevice:
     :path: "../node_modules/expo-device/ios"
   ExpoDomWebView:
@@ -2465,6 +2482,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-glass-effect/ios"
   ExpoImage:
     :path: "../node_modules/expo-image/ios"
+  ExpoImageManipulator:
+    :path: "../node_modules/expo-image-manipulator/ios"
   ExpoImagePicker:
     :path: "../node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
@@ -2669,15 +2688,17 @@ SPEC CHECKSUMS:
   EXConstants: b3c63be5f8648e4ab8e6ff5099b62f629247f969
   Expo: ed1258b36d29c6b5021951ab7933754e765587cb
   ExpoAdapterGoogleSignIn: 2d18762fc21b37216b3afdf39ad4aea5352f22e9
-  ExpoAppleAuthentication: 4d2e0c88a4463229760f1fbb9a937a810efb6863
+  ExpoAppleAuthentication: 86e97b24bd6687c156c55bb448f570bc29081ace
   ExpoAsset: bdc7bc21fe25d197c3aa7547e14c12c42087d9c9
   ExpoBattery: 6248dea4b5c9e9c05e16bdd2fe8c7c5d7b3b02c9
+  ExpoCamera: bf0ce92035d27e22103bc7cad38e348c6ce2ffd3
   ExpoDevice: 8fb20656b96e38f8928cd069210a1aad0c759ac3
   ExpoDomWebView: f101fb3db4b6eec4163fca51f7507189b7e48661
   ExpoFileSystem: e1a42d7f69f7faae33f4d7d01708f7861f7bd757
   ExpoFont: 1aa465cf9f8ac6b670405becba8b15473581b2dd
   ExpoGlassEffect: b11cb2bf51bf6d4dc6309c421ca8cec086b4b9db
   ExpoImage: 53ab717157f29bb5139f9f75b259f93f784b6847
+  ExpoImageManipulator: 2f2761470f65f7a739239cbff912d4fedeff8e3a
   ExpoImagePicker: cf1756f08bc5b29a31ff6af9b261df57b7a12078
   ExpoKeepAwake: 7f3b28c361c37389b18841bb52a58003b39fcb33
   ExpoLinking: 88ba36a28c83525e564b8229e02d451347accb70
@@ -2790,6 +2811,7 @@ SPEC CHECKSUMS:
   SharedStorage: c119f62ede0fa0955dd64ebf702245e63fc4ff23
   UMAppLoader: 71b50bcc31d86495e52c0b4cd17e2708bf297be3
   Yoga: dd994d8c85dca5cc9b10f5df8c01f9ef1d0da191
+  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: 6e42415bf15ec1e34518a53536e5d5dcf098fe91
 
