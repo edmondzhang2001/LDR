@@ -125,7 +125,10 @@ router.post('/photo', requireAuth, async (req, res) => {
           req.user.photos[req.user.photos.length - 1].thumbnailUrl = thumbnailUrl;
         }
       } catch (thumbErr) {
-        console.error('[photo thumbnail]', thumbErr?.message || thumbErr);
+        // HEIF/HEIC from iOS not supported by sharp by default; use full-size URL so photo still shows
+        console.warn('[photo thumbnail]', thumbErr?.message || thumbErr, '— using original URL');
+        thumbnailUrl = photoUrl;
+        req.user.photos[req.user.photos.length - 1].thumbnailUrl = thumbnailUrl;
       }
     }
     await req.user.save();
