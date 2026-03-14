@@ -29,6 +29,8 @@ const STAMP_BAR_HEIGHT = 44;
 
 const PINK_STRIPE = '#F5D0D0';
 const CREAM_STRIPE = '#FFFBF5';
+/** Max cards to mount at once (each loads a full-res image). Prevents iOS memory kill. */
+const MAX_RENDERED_CARDS = 10;
 
 function getPresetIndexForCard(globalIndex) {
   return (globalIndex % 4) + 1;
@@ -263,42 +265,43 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
     const CASCADE_DELAY = 220;
     const timeouts = [];
 
-    // Drop earliest (oldest) card first, latest (newest) last
-    for (let i = 0; i < n; i++) {
+    const runDrop = (i) => {
       const cardIndex = n - 1 - i;
-      const delay = i * CASCADE_DELAY;
       const toX = cardIndex === 0 ? 0 : layout[cardIndex - 1].offsetX;
       const toY = cardIndex === 0 ? 0 : layout[cardIndex - 1].offsetY;
       const toRotation = cardIndex === 0 ? 0 : layout[cardIndex - 1].rotation;
       const valXY = dropValuesRef.current[cardIndex];
       const valRot = dropRotationsRef.current[cardIndex];
+      setDropIndex(cardIndex);
+      Animated.parallel([
+        Animated.spring(valXY, {
+          toValue: { x: toX, y: toY },
+          friction: 12,
+          tension: 80,
+          useNativeDriver: false,
+        }),
+        Animated.spring(valRot, {
+          toValue: toRotation,
+          friction: 10,
+          tension: 60,
+          useNativeDriver: false,
+        }),
+      ]).start(() => {
+        if (i === n - 1) {
+          setDropIndex(-1);
+          setIsResetting(false);
+          dropValuesRef.current = null;
+          dropRotationsRef.current = null;
+        }
+      });
+    };
 
-      timeouts.push(
-        setTimeout(() => {
-          setDropIndex(cardIndex);
-          Animated.parallel([
-            Animated.spring(valXY, {
-              toValue: { x: toX, y: toY },
-              friction: 12,
-              tension: 80,
-              useNativeDriver: false,
-            }),
-            Animated.spring(valRot, {
-              toValue: toRotation,
-              friction: 10,
-              tension: 60,
-              useNativeDriver: false,
-            }),
-          ]).start(() => {
-            if (i === n - 1) {
-              setDropIndex(-1);
-              setIsResetting(false);
-              dropValuesRef.current = null;
-              dropRotationsRef.current = null;
-            }
-          });
-        }, delay)
-      );
+    // Start first card immediately so there's no pause after last card flies off
+    runDrop(0);
+
+    // Drop remaining cards with stagger
+    for (let i = 1; i < n; i++) {
+      timeouts.push(setTimeout(() => runDrop(i), i * CASCADE_DELAY));
     }
 
     return () => timeouts.forEach((t) => clearTimeout(t));
@@ -307,7 +310,8 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
   photosLengthRef.current = n;
   const remaining = n - activeIndex;
   const visibleSlice = photos.slice(activeIndex);
-  const stackLayout = useStackLayout(Math.max(0, visibleSlice.length - 1));
+  const renderedSlice = visibleSlice.slice(0, MAX_RENDERED_CARDS);
+  const stackLayout = useStackLayout(Math.max(0, renderedSlice.length - 1));
 
   const rotateInterpolate = pan.x.interpolate({
     inputRange: [-200, 0, 200],
@@ -336,7 +340,7 @@ export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFir
 
   return (
     <View style={styles.stackContainer}>
-      {visibleSlice.map((photo, sliceIndex) => {
+      {renderedSlice.map((photo, sliceIndex) => {
         const isTop = sliceIndex === 0;
         const globalIndex = activeIndex + sliceIndex;
         const layout = !isTop ? stackLayout[sliceIndex - 1] : null;
