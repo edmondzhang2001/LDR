@@ -9,6 +9,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { setApiToken, getPartner } from '../lib/api';
 
 const TASK_NAME = 'BACKGROUND_WIDGET_UPDATE';
+const BACKGROUND_NOTIFICATION_TASK = 'BACKGROUND-NOTIFICATION-TASK';
 const TOKEN_KEY = 'ldr_token';
 const APP_GROUP_ID = 'group.com.edmond.duva';
 
@@ -56,6 +57,46 @@ async function runWidgetUpdate() {
 TaskManager.defineTask(TASK_NAME, runWidgetUpdate);
 
 /**
+ * Background notification task: when a push arrives (app closed/background),
+ * extract photoUrl from payload, download to App Group, reload widget.
+ * Registered with Notifications.registerTaskAsync so iOS can run it on silent push.
+ */
+async function runBackgroundNotificationTask({ data, error: taskError }) {
+  if (taskError) return Notifications.BackgroundNotificationResult.Failed;
+  let photoUrl =
+    data?.notification?.data?.photoUrl ||
+    (typeof data?.data?.dataString === 'string'
+      ? (() => {
+          try {
+            const parsed = JSON.parse(data.data.dataString);
+            return parsed?.photoUrl;
+          } catch {
+            return null;
+          }
+        })()
+      : null);
+  if (!photoUrl || typeof photoUrl !== 'string') {
+    return Notifications.BackgroundNotificationResult.NoData;
+  }
+  const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
+  if (!sharedPath) {
+    return Notifications.BackgroundNotificationResult.NewData;
+  }
+  try {
+    const localUri = `file://${sharedPath}/current_widget_photo.jpg`;
+    await FileSystem.downloadAsync(photoUrl, localUri);
+    reloadWidget();
+  } catch (e) {
+    try {
+      reloadWidget();
+    } catch (_) {}
+  }
+  return Notifications.BackgroundNotificationResult.NewData;
+}
+
+TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, runBackgroundNotificationTask);
+
+/**
  * Register the background widget task and listen for silent push notifications.
  * Call once on app boot (e.g. from _layout.js).
  */
@@ -72,4 +113,4 @@ export function registerBackgroundWidgetTask() {
   });
 }
 
-export { TASK_NAME };
+export { TASK_NAME, BACKGROUND_NOTIFICATION_TASK };

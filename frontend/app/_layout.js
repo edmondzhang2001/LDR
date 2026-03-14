@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform, AppState } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { StatusBar } from 'expo-status-bar';
@@ -66,6 +66,15 @@ export default function RootLayout() {
       registerBackgroundWidgetTask();
     } catch (_) {}
   }, []);
+
+  // Sync widget with current partner photo whenever app comes to foreground
+  const fetchPartner = useAuthStore((s) => s.fetchPartner);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') fetchPartner();
+    });
+    return () => sub.remove();
+  }, [fetchPartner]);
 
   // Push initial widget snapshot on mount so the widget has content (placeholder) to show
   useEffect(() => {

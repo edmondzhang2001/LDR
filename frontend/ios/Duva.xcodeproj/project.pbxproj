@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -66,21 +66,21 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		E79BED5C2F6252A000C63B83 /* Exceptions for "DuvaImageWidget" folder in "DuvaImageWidgetExtension" target */ = {
+		E79BED5C2F6252A000C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = E79BED462F62529F00C63B83 /* DuvaImageWidgetExtension */;
 		};
-		E79BEDB02F625F2B00C63B83 /* Exceptions for "DuvaStatsWidget" folder in "DuvaImageWidgetExtension" target */ = {
+		E79BEDB02F625F2B00C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				DuvaStatsWidget.swift,
 			);
 			target = E79BED462F62529F00C63B83 /* DuvaImageWidgetExtension */;
 		};
-		E79BEDB22F625F3B00C63B83 /* Exceptions for "DuvaCalendarWidget" folder in "DuvaImageWidgetExtension" target */ = {
+		E79BEDB22F625F3B00C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				DuvaCalendarWidget.swift,
@@ -90,42 +90,9 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		E79BED4C2F62529F00C63B83 /* DuvaImageWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				E79BED5C2F6252A000C63B83 /* Exceptions for "DuvaImageWidget" folder in "DuvaImageWidgetExtension" target */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = DuvaImageWidget;
-			sourceTree = "<group>";
-		};
-		E79BED842F625D2500C63B83 /* DuvaStatsWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				E79BEDB02F625F2B00C63B83 /* Exceptions for "DuvaStatsWidget" folder in "DuvaImageWidgetExtension" target */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = DuvaStatsWidget;
-			sourceTree = "<group>";
-		};
-		E79BED9C2F625D4300C63B83 /* DuvaCalendarWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				E79BEDB22F625F3B00C63B83 /* Exceptions for "DuvaCalendarWidget" folder in "DuvaImageWidgetExtension" target */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = DuvaCalendarWidget;
-			sourceTree = "<group>";
-		};
+		E79BED4C2F62529F00C63B83 /* DuvaImageWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E79BED5C2F6252A000C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaImageWidget; sourceTree = "<group>"; };
+		E79BED842F625D2500C63B83 /* DuvaStatsWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E79BEDB02F625F2B00C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaStatsWidget; sourceTree = "<group>"; };
+		E79BED9C2F625D4300C63B83 /* DuvaCalendarWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E79BEDB22F625F3B00C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaCalendarWidget; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -398,9 +365,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Duva/Pods-Duva-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Duva/Pods-Duva-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -415,9 +386,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Duva/Pods-Duva-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Duva/Pods-Duva-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

@@ -71,6 +71,11 @@ export async function updateMood({ emoji, text }) {
   return data;
 }
 
+/** PUT /api/user/push-token — save Expo push token for this device (enables new-photo pushes to partner). */
+export async function updatePushToken(token) {
+  await api.put('/user/push-token', { pushToken: token ?? null });
+}
+
 /** POST /api/couple/pair/generate — generate 6-digit pairing code. */
 export async function generatePairCode() {
   const { data } = await api.post('/couple/pair/generate');

@@ -58,7 +58,7 @@ async function writeWidgetData(partner, reunion) {
       reloadWidget();
       return;
     }
-    const baseUri = `file://${sharedPath}`;
+    const baseUri = 'file://' + sharedPath;
     const lastActive =
       partner?.lastActive ??
       (partner?.lastUpdatedDataAt ? new Date(partner.lastUpdatedDataAt).toISOString() : null);
@@ -87,6 +87,37 @@ async function writeWidgetData(partner, reunion) {
     reloadWidget();
   } catch (e) {
     console.error('Widget data write:', e?.message || e);
+    reloadWidget();
+  }
+}
+
+const APP_GROUP_ID = 'group.com.edmond.duva';
+
+/**
+ * Sync the widget photo with the given URL: download to App Group and reload widget.
+ * If !photoUrl, clear the widget file (so it can show placeholder) and reload.
+ * Call whenever we have a valid partner photo to keep the home screen widget in sync.
+ */
+export async function syncWidgetPhoto(photoUrl) {
+  try {
+    const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
+    if (!sharedPath) {
+      reloadWidget();
+      return;
+    }
+    const localUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+    if (!photoUrl) {
+      try {
+        const info = await FileSystem.getInfoAsync(localUri, { size: false });
+        if (info.exists) await FileSystem.deleteAsync(localUri);
+      } catch (_) {}
+      reloadWidget();
+      return;
+    }
+    await FileSystem.downloadAsync(photoUrl, localUri);
+    reloadWidget();
+  } catch (e) {
+    console.error('syncWidgetPhoto:', e?.message || e);
     reloadWidget();
   }
 }
@@ -359,17 +390,7 @@ export const useAuthStore = create((set, get) => {
         }
         await writeWidgetData(partner, partner?.reunion ?? null);
         const activePhotoUrl = latestPhoto?.thumbnailUrl || latestPhoto?.url;
-        try {
-          const sharedPath = getAppGroupDirectory('group.com.edmond.duva');
-          if (sharedPath && activePhotoUrl) {
-            const localUri = `file://${sharedPath}/current_widget_photo.jpg`;
-            await FileSystem.downloadAsync(activePhotoUrl, localUri);
-          }
-          reloadWidget();
-        } catch (e) {
-          console.error('Widget photo download:', e?.message || e);
-          reloadWidget();
-        }
+        await syncWidgetPhoto(activePhotoUrl);
         return partner;
       } catch {
         return null;

@@ -4,6 +4,8 @@ const sharp = require('sharp');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { requireAuth } = require('../middleware/auth');
 const User = require('../models/User');
+const Expo = require('expo-server-sdk').Expo;
+const expoPush = new Expo();
 
 const router = express.Router();
 const BUCKET = process.env.S3_BUCKET_NAME || 'ldr-uploads';
@@ -127,6 +129,29 @@ router.post('/photo', requireAuth, async (req, res) => {
       }
     }
     await req.user.save();
+
+    // Notify partner so widget can update in background (Locket-style)
+    const finalPhotoUrl = thumbnailUrl || photoUrl;
+    const partnerId = req.user.partnerId;
+    if (finalPhotoUrl && partnerId && Expo.isExpoPushToken) {
+      try {
+        const partner = await User.findById(partnerId).select('pushToken').lean();
+        const pushToken = partner?.pushToken;
+        if (pushToken && Expo.isExpoPushToken(pushToken)) {
+          const messages = [
+            {
+              to: pushToken,
+              data: { photoUrl: finalPhotoUrl, type: 'new_photo' },
+              _contentAvailable: true,
+            },
+          ];
+          await expoPush.sendPushNotificationsAsync(messages);
+        }
+      } catch (pushErr) {
+        console.error('[photo push]', pushErr?.message || pushErr);
+      }
+    }
+
     const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const photos = (req.user.photos || [])
       .filter((p) => new Date(p.createdAt) >= cutoff24h)
@@ -213,6 +238,18 @@ router.put('/mood', requireAuth, async (req, res) => {
         text: req.user.mood.text || undefined,
       },
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** PUT /api/user/push-token — save Expo push token for the authenticated user (used to send new-photo pushes to partner). */
+router.put('/push-token', requireAuth, async (req, res) => {
+  try {
+    const pushToken = req.body.pushToken != null ? String(req.body.pushToken).trim() || null : null;
+    req.user.pushToken = pushToken;
+    await req.user.save();
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
