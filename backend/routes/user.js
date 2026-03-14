@@ -255,6 +255,8 @@ router.post('/sync-subscription', requireAuth, async (req, res) => {
   }
 });
 
+const NAME_CHANGE_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
 /** PUT /api/user/profile — update current user profile (e.g. display name). */
 router.put('/profile', requireAuth, async (req, res) => {
   try {
@@ -266,7 +268,17 @@ router.put('/profile', requireAuth, async (req, res) => {
     if (!trimmed) {
       return res.status(400).json({ error: 'name is required' });
     }
+    const lastUpdated = req.user.lastNameUpdatedAt;
+    if (lastUpdated) {
+      const elapsed = Date.now() - new Date(lastUpdated).getTime();
+      if (elapsed < NAME_CHANGE_COOLDOWN_MS) {
+        return res.status(400).json({
+          error: 'You can only change your name once every 14 days.',
+        });
+      }
+    }
     req.user.name = trimmed;
+    req.user.lastNameUpdatedAt = new Date();
     await req.user.save();
     res.json({
       user: {

@@ -22,7 +22,7 @@ import { calculateDistance } from '../src/utils/distance';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, partnerId, partner, fetchPartner, refreshUser, logout, saveReunion, endReunion, addPhotoAfterUpload, updateMood, isAnimatingSend, isSendingPhoto, setAnimatingSend, setSendingPhoto } = useAuthStore();
+  const { user, partnerId, partner, fetchPartner, refreshUser, saveReunion, endReunion, addPhotoAfterUpload, updateMood, isAnimatingSend, isSendingPhoto, setAnimatingSend, setSendingPhoto } = useAuthStore();
   const [myLocation, setMyLocation] = useState(null);
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -267,8 +267,17 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.header}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="heart" size={40} color={colors.blushDark} />
+          <View style={styles.headerRow}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="heart" size={40} color={colors.blushDark} />
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.settingsButton, pressed && styles.settingsButtonPressed]}
+              onPress={() => router.push('/settings')}
+              hitSlop={12}
+            >
+              <Ionicons name="settings-outline" size={26} color={colors.textMuted} />
+            </Pressable>
           </View>
           <Text style={styles.connectedTitle}>Connected with {partnerName}</Text>
           {/* Mood pills: partner (read-only, anchored) + me (editable with affordance) */}
@@ -361,11 +370,6 @@ export default function HomeScreen() {
             saveReunion={saveReunion}
             endReunion={endReunion}
           />
-
-          <Pressable style={({ pressed }) => [styles.signOutButton, pressed && styles.signOutButtonPressed]} onPress={logout}>
-            <Ionicons name="log-out-outline" size={20} color={colors.textMuted} />
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </Pressable>
         </View>
       </ScrollView>
 
@@ -456,6 +460,22 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 32,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    width: '100%',
+  },
+  settingsButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    padding: 8,
+  },
+  settingsButtonPressed: {
+    opacity: 0.7,
   },
   iconWrap: {
     width: 80,
@@ -627,30 +647,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     marginTop: 4,
-  },
-  signOutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.surface,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    marginTop: 28,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  signOutButtonPressed: {
-    opacity: 0.85,
-  },
-  signOutText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textMuted,
   },
   fab: {
     position: 'absolute',

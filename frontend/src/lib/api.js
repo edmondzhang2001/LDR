@@ -83,6 +83,12 @@ export async function joinPair(code) {
   return data;
 }
 
+/** POST /api/couple/unlink — disconnect from partner (sets partnerId to null for both users). */
+export async function unlinkPartner() {
+  const { data } = await api.post('/couple/unlink');
+  return data;
+}
+
 /** PUT /api/reunion — set reunion dates for both users. */
 export async function saveReunion(startDate, endDate) {
   const { data } = await api.put('/reunion', {

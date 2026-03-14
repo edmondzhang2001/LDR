@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood, updatePushToken } from '../lib/api';
+import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood, updatePushToken, unlinkPartner as apiUnlinkPartner } from '../lib/api';
 import { registerForPushNotificationsAsync } from '../lib/pushNotifications';
 let getAppGroupDirectory = () => null;
 let reloadWidget = () => {};
@@ -383,6 +383,15 @@ export const useAuthStore = create((set, get) => {
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
       set((state) => ({ user, partnerId: user.partnerId ?? state.partnerId }));
       return user;
+    },
+
+    /** Unlink from partner (POST /api/couple/unlink). Clears partnerId on both users; updates store and SecureStore so router redirects to pair/paywall. */
+    unlinkPartner: async () => {
+      await apiUnlinkPartner();
+      const { user } = get();
+      const updatedUser = user ? { ...user, partnerId: null } : null;
+      if (updatedUser) await SecureStore.setItemAsync(USER_KEY, JSON.stringify(updatedUser));
+      set({ partnerId: null, partner: null, user: updatedUser });
     },
 
     /** Set reunion dates for both users; updates local user and partner state. */

@@ -28,6 +28,25 @@ router.post('/pair/generate', requireAuth, async (req, res) => {
   }
 });
 
+router.post('/unlink', requireAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    const partnerId = user.partnerId;
+    if (!partnerId) {
+      return res.status(400).json({ error: 'Not paired' });
+    }
+    const partner = await User.findById(partnerId);
+    if (!partner) {
+      return res.status(404).json({ error: 'Partner not found' });
+    }
+    await User.findByIdAndUpdate(user._id, { partnerId: null });
+    await User.findByIdAndUpdate(partnerId, { partnerId: null });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/pair/join', requireAuth, async (req, res) => {
   try {
     const { code } = req.body;

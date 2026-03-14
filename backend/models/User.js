@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    lastNameUpdatedAt: {
+      type: Date,
+      default: null,
+    },
     partnerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
