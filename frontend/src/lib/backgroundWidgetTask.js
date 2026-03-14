@@ -1,6 +1,9 @@
 /**
  * Background task for Locket-style widget: on silent push (new photo),
  * fetch latest partner photo, download to App Group, and reload the native widget.
+ *
+ * Uses two-step download (cache → App Group copy) because downloadAsync can
+ * silently fail when writing directly to the App Group shared container.
  */
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
@@ -13,6 +16,9 @@ const BACKGROUND_NOTIFICATION_TASK = 'BACKGROUND-NOTIFICATION-TASK';
 const TOKEN_KEY = 'ldr_token';
 const APP_GROUP_ID = 'group.com.edmond.duva';
 
+// Capture at load time; can be undefined when task runs headless
+const Result = Notifications?.BackgroundNotificationResult ?? {};
+
 let getAppGroupDirectory = () => null;
 let reloadWidget = () => {};
 try {
@@ -21,6 +27,22 @@ try {
   reloadWidget = shared.reloadWidget;
 } catch {
   // iOS-only module
+}
+
+/** Download a remote URL into the App Group as current_widget_photo.jpg. */
+async function downloadToAppGroup(url) {
+  const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
+  if (!sharedPath) return false;
+  const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+  const cacheUri = FileSystem.cacheDirectory + 'widget_photo_tmp.jpg';
+  const dl = await FileSystem.downloadAsync(url, cacheUri);
+  if (!dl || dl.status !== 200) return false;
+  try {
+    const existing = await FileSystem.getInfoAsync(destUri, { size: false });
+    if (existing.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
+  } catch (_) {}
+  await FileSystem.copyAsync({ from: cacheUri, to: destUri });
+  return true;
 }
 
 async function runWidgetUpdate() {
@@ -36,21 +58,13 @@ async function runWidgetUpdate() {
         ? [...photos].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0]
         : null;
     const activePhotoUrl = latestPhoto?.thumbnailUrl || latestPhoto?.url;
-    const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
-    if (!sharedPath) {
-      reloadWidget();
-      return;
-    }
-    const localUri = `file://${sharedPath}/current_widget_photo.jpg`;
     if (activePhotoUrl) {
-      await FileSystem.downloadAsync(activePhotoUrl, localUri);
+      await downloadToAppGroup(activePhotoUrl);
     }
     reloadWidget();
   } catch (e) {
     console.warn('[BACKGROUND_WIDGET_UPDATE]', e?.message || e);
-    try {
-      reloadWidget();
-    } catch (_) {}
+    try { reloadWidget(); } catch (_) {}
   }
 }
 
@@ -59,39 +73,24 @@ TaskManager.defineTask(TASK_NAME, runWidgetUpdate);
 /**
  * Background notification task: when a push arrives (app closed/background),
  * extract photoUrl from payload, download to App Group, reload widget.
- * Registered with Notifications.registerTaskAsync so iOS can run it on silent push.
  */
 async function runBackgroundNotificationTask({ data, error: taskError }) {
-  if (taskError) return Notifications.BackgroundNotificationResult.Failed;
+  if (taskError) return Result.Failed;
   let photoUrl =
     data?.notification?.data?.photoUrl ||
     (typeof data?.data?.dataString === 'string'
       ? (() => {
-          try {
-            const parsed = JSON.parse(data.data.dataString);
-            return parsed?.photoUrl;
-          } catch {
-            return null;
-          }
+          try { return JSON.parse(data.data.dataString)?.photoUrl; } catch { return null; }
         })()
       : null);
   if (!photoUrl || typeof photoUrl !== 'string') {
-    return Notifications.BackgroundNotificationResult.NoData;
-  }
-  const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
-  if (!sharedPath) {
-    return Notifications.BackgroundNotificationResult.NewData;
+    return Result.NoData;
   }
   try {
-    const localUri = `file://${sharedPath}/current_widget_photo.jpg`;
-    await FileSystem.downloadAsync(photoUrl, localUri);
+    await downloadToAppGroup(photoUrl);
     reloadWidget();
-  } catch (e) {
-    try {
-      reloadWidget();
-    } catch (_) {}
-  }
-  return Notifications.BackgroundNotificationResult.NewData;
+  } catch (_) {}
+  return Result.NewData;
 }
 
 TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, runBackgroundNotificationTask);

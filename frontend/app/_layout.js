@@ -76,6 +76,13 @@ export default function RootLayout() {
     return () => sub.remove();
   }, [fetchPartner]);
 
+  // Cold start: sync widget as soon as we're logged in with a partner (AppState 'change' only fires on transition, not initial load)
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    if (!sessionVerified || !token || !user?.partnerId) return;
+    fetchPartner();
+  }, [sessionVerified, token, user?.partnerId, fetchPartner]);
+
   // Push initial widget snapshot on mount so the widget has content (placeholder) to show
   useEffect(() => {
     if (Platform.OS !== 'ios') return;

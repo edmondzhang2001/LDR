@@ -54,10 +54,7 @@ function normalizeReunion(reunion) {
 async function writeWidgetData(partner, reunion) {
   try {
     const sharedPath = getAppGroupDirectory('group.com.edmond.duva');
-    if (!sharedPath) {
-      reloadWidget();
-      return;
-    }
+    if (!sharedPath) return;
     const baseUri = 'file://' + sharedPath;
     const lastActive =
       partner?.lastActive ??
@@ -94,31 +91,53 @@ async function writeWidgetData(partner, reunion) {
 const APP_GROUP_ID = 'group.com.edmond.duva';
 
 /**
- * Sync the widget photo with the given URL: download to App Group and reload widget.
- * If !photoUrl, clear the widget file (so it can show placeholder) and reload.
- * Call whenever we have a valid partner photo to keep the home screen widget in sync.
+ * Sync the widget photo: download to cache first, then copy into the App Group so
+ * the native widget extension can read it. Uses a two-step approach because
+ * downloadAsync can silently fail when targeting App Group paths directly.
  */
 export async function syncWidgetPhoto(photoUrl) {
   try {
     const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
     if (!sharedPath) {
-      reloadWidget();
+      console.warn('[syncWidgetPhoto] App Group directory unavailable');
       return;
     }
-    const localUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+    const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+
     if (!photoUrl) {
       try {
-        const info = await FileSystem.getInfoAsync(localUri, { size: false });
-        if (info.exists) await FileSystem.deleteAsync(localUri);
+        const info = await FileSystem.getInfoAsync(destUri, { size: false });
+        if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
       } catch (_) {}
       reloadWidget();
       return;
     }
-    await FileSystem.downloadAsync(photoUrl, localUri);
+
+    // Step 1: download to the app's own cache (guaranteed to work)
+    const cacheUri = FileSystem.cacheDirectory + 'widget_photo_tmp.jpg';
+    const dl = await FileSystem.downloadAsync(photoUrl, cacheUri);
+    if (!dl || dl.status !== 200) {
+      console.warn('[syncWidgetPhoto] download failed, status', dl?.status);
+      return;
+    }
+
+    // Step 2: copy from cache into the App Group shared container
+    try {
+      const existing = await FileSystem.getInfoAsync(destUri, { size: false });
+      if (existing.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
+    } catch (_) {}
+    await FileSystem.copyAsync({ from: cacheUri, to: destUri });
+
+    // Verify the file actually landed
+    const verify = await FileSystem.getInfoAsync(destUri, { size: false });
+    if (!verify.exists) {
+      console.error('[syncWidgetPhoto] file not found after copy — App Group write failed');
+      return;
+    }
+
     reloadWidget();
   } catch (e) {
-    console.error('syncWidgetPhoto:', e?.message || e);
-    reloadWidget();
+    console.error('[syncWidgetPhoto]', e?.message || e);
   }
 }
 
