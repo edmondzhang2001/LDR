@@ -295,7 +295,11 @@ export default function HomeScreen() {
 
   if (!user || partnerId == null) return null;
 
-  const partnerName = partner?.name || 'your partner';
+  const partnerDisplayName =
+    [partner?.firstName, partner?.lastName].filter(Boolean).join(' ') || partner?.name || 'your partner';
+  const partnerFirstNameValue =
+    partner?.firstName || partner?.name?.trim().split(/\s+/)[0] || '';
+  const partnerName = partnerDisplayName;
   const cityName = partnerLoc?.city?.trim() || '—';
   const weatherIcon = weather?.icon ? weatherIconToIonicons(weather.icon) : 'partly-sunny-outline';
   const rawBattery = partner?.batteryLevel;
@@ -314,7 +318,7 @@ export default function HomeScreen() {
     batteryPct == null ? colors.textMuted : batteryPct >= 80 ? colors.success : batteryPct >= 20 ? colors.text : colors.blushDark;
   const lastUpdated = partner?.lastUpdatedDataAt;
   const relativeTime = lastUpdated ? formatRelativeTime(lastUpdated) : '';
-  const partnerFirstName = (partner?.name?.trim().split(/\s+/)[0] || 'PARTNER').toUpperCase();
+  const partnerFirstName = (partnerFirstNameValue || 'PARTNER').toUpperCase();
   const distanceKm =
     myLocation && hasPartnerCoords
       ? Math.round(calculateDistance(myLocation.lat, myLocation.lng, partnerLoc.lat, partnerLoc.lng))
@@ -384,7 +388,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <PolaroidStack partnerPhotos={partnerPhotos} partnerCity={cityName} partnerFirstName={partner?.name?.trim().split(/\s+/)[0] || ''} />
+        <PolaroidStack partnerPhotos={partnerPhotos} partnerCity={cityName} partnerFirstName={partnerFirstNameValue} />
 
         <View style={styles.cards}>
           {/* Row 1: Location (left) + Weather (right) */}

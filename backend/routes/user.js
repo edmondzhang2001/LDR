@@ -21,6 +21,41 @@ const s3Client =
       })
     : null;
 
+function sanitizeOptionalName(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function splitFullName(fullName) {
+  const trimmed = sanitizeOptionalName(fullName);
+  if (!trimmed) return { firstName: null, lastName: null };
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], lastName: null };
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' '),
+  };
+}
+
+function getUserNameFields(user) {
+  const firstName = sanitizeOptionalName(user.firstName);
+  const lastName = sanitizeOptionalName(user.lastName);
+  if (firstName || lastName) {
+    return {
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      name: [firstName, lastName].filter(Boolean).join(' ') || undefined,
+    };
+  }
+  const parsed = splitFullName(user.name);
+  return {
+    firstName: parsed.firstName || undefined,
+    lastName: parsed.lastName || undefined,
+    name: sanitizeOptionalName(user.name) || undefined,
+  };
+}
+
 /** GET /api/user/partner — fetch current user's partner profile (safe fields only). */
 router.get('/partner', requireAuth, async (req, res) => {
   try {
@@ -29,7 +64,7 @@ router.get('/partner', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'No partner linked' });
     }
     const partner = await User.findById(partnerId)
-      .select('name email location batteryLevel lastUpdatedDataAt reunion photos timezone mood')
+      .select('name firstName lastName email location batteryLevel lastUpdatedDataAt reunion photos timezone mood')
       .lean();
     if (!partner) {
       return res.status(404).json({ error: 'Partner not found' });
@@ -55,7 +90,7 @@ router.get('/partner', requireAuth, async (req, res) => {
     res.json({
       partner: {
         id: partner._id,
-        name: partner.name || undefined,
+        ...getUserNameFields(partner),
         email: partner.email || undefined,
         location,
         batteryLevel:
@@ -303,13 +338,21 @@ const NAME_CHANGE_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 /** PUT /api/user/profile — update current user profile (e.g. display name). */
 router.put('/profile', requireAuth, async (req, res) => {
   try {
-    const { name } = req.body;
-    if (typeof name !== 'string') {
-      return res.status(400).json({ error: 'name must be a string' });
+    const firstNameInput = sanitizeOptionalName(req.body.firstName);
+    const lastNameInput = sanitizeOptionalName(req.body.lastName);
+    const fallbackNameInput = sanitizeOptionalName(req.body.name);
+
+    let firstName = firstNameInput;
+    let lastName = lastNameInput;
+
+    if (!firstName && !lastName && fallbackNameInput) {
+      const parsed = splitFullName(fallbackNameInput);
+      firstName = parsed.firstName;
+      lastName = parsed.lastName;
     }
-    const trimmed = name.trim();
-    if (!trimmed) {
-      return res.status(400).json({ error: 'name is required' });
+
+    if (!firstName) {
+      return res.status(400).json({ error: 'firstName is required' });
     }
     const lastUpdated = req.user.lastNameUpdatedAt;
     if (lastUpdated) {
@@ -320,14 +363,16 @@ router.put('/profile', requireAuth, async (req, res) => {
         });
       }
     }
-    req.user.name = trimmed;
+    req.user.firstName = firstName;
+    req.user.lastName = lastName || null;
+    req.user.name = [firstName, lastName].filter(Boolean).join(' ');
     req.user.lastNameUpdatedAt = new Date();
     await req.user.save();
     res.json({
       user: {
         id: req.user._id,
         email: req.user.email || undefined,
-        name: req.user.name || undefined,
+        ...getUserNameFields(req.user),
         partnerId: req.user.partnerId ?? null,
       },
     });

@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "backfill:user-names": "node scripts/backfill-user-names.js"
   },
   "engines": {
     "node": ">=18.0.0"

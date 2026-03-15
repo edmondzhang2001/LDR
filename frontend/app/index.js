@@ -17,7 +17,7 @@ export default function Index() {
       router.replace('/onboarding');
       return;
     }
-    if (!user.name) {
+    if (!user.firstName && !user.name) {
       router.replace('/profile');
       return;
     }

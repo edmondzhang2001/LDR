@@ -28,6 +28,16 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    firstName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    lastName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     lastNameUpdatedAt: {
       type: Date,
       default: null,

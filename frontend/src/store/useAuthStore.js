@@ -24,12 +24,29 @@ try {
 const TOKEN_KEY = 'ldr_token';
 const USER_KEY = 'ldr_user';
 
+function parseFullName(fullName) {
+  if (!fullName || typeof fullName !== 'string') return { firstName: undefined, lastName: undefined };
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: undefined, lastName: undefined };
+  if (parts.length === 1) return { firstName: parts[0], lastName: undefined };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
+function buildFullName(firstName, lastName) {
+  return [firstName, lastName].filter(Boolean).join(' ') || undefined;
+}
+
 function normalizeUser(dataUser) {
   if (!dataUser) return null;
+  const parsed = parseFullName(dataUser.name);
+  const firstName = dataUser.firstName ?? parsed.firstName;
+  const lastName = dataUser.lastName ?? parsed.lastName;
   return {
     id: dataUser.id,
     email: dataUser.email ?? undefined,
-    name: dataUser.name ?? undefined,
+    firstName: firstName ?? undefined,
+    lastName: lastName ?? undefined,
+    name: buildFullName(firstName, lastName) ?? dataUser.name ?? undefined,
     partnerId: dataUser.partnerId ?? null,
     hasPremiumAccess: Boolean(dataUser.hasPremiumAccess),
     reunion: dataUser.reunion ?? null,
@@ -324,8 +341,15 @@ export const useAuthStore = create((set, get) => {
 
     signInWithOAuth: async (provider, identityToken, nameFromOAuth) => {
       const body = { provider, identityToken };
+      const parsedName = parseFullName(nameFromOAuth);
       if (typeof nameFromOAuth === 'string' && nameFromOAuth.trim()) {
         body.name = nameFromOAuth.trim();
+      }
+      if (parsedName.firstName) {
+        body.firstName = parsedName.firstName;
+      }
+      if (parsedName.lastName) {
+        body.lastName = parsedName.lastName;
       }
       const { data } = await api.post('/auth/oauth', body);
       const user = normalizeUser(data.user);
@@ -369,6 +393,8 @@ export const useAuthStore = create((set, get) => {
           identityToken: credential.identityToken,
         };
         if (fullName) body.name = fullName;
+        if (credential.fullName?.givenName) body.firstName = credential.fullName.givenName.trim();
+        if (credential.fullName?.familyName) body.lastName = credential.fullName.familyName.trim();
         if (email) body.email = email;
         const { data } = await api.post('/auth/oauth', body);
         const user = normalizeUser(data.user);
@@ -395,10 +421,15 @@ export const useAuthStore = create((set, get) => {
       if (!partnerId) return null;
       try {
         const data = await getPartner();
+        const partnerParsed = parseFullName(data.partner?.name);
+        const partnerFirstName = data.partner?.firstName ?? partnerParsed.firstName;
+        const partnerLastName = data.partner?.lastName ?? partnerParsed.lastName;
         const partner = data.partner
           ? {
               id: data.partner.id,
-              name: data.partner.name ?? undefined,
+              firstName: partnerFirstName ?? undefined,
+              lastName: partnerLastName ?? undefined,
+              name: buildFullName(partnerFirstName, partnerLastName) ?? data.partner.name ?? undefined,
               email: data.partner.email ?? undefined,
               location: data.partner.location,
               batteryLevel: data.partner.batteryLevel ?? null,
@@ -460,9 +491,12 @@ export const useAuthStore = create((set, get) => {
       }
     },
 
-    /** Update profile (name) and sync store. */
-    updateProfileName: async (name) => {
-      const data = await updateProfile({ name });
+    /** Update profile (first/last name) and sync store. */
+    updateProfileName: async (firstName, lastName = '') => {
+      const data = await updateProfile({
+        firstName: typeof firstName === 'string' ? firstName.trim() : '',
+        lastName: typeof lastName === 'string' ? lastName.trim() : '',
+      });
       const user = normalizeUser(data.user);
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
       set((state) => ({ user, partnerId: user.partnerId ?? state.partnerId }));

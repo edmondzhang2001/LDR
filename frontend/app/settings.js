@@ -39,19 +39,25 @@ export default function SettingsScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
+  const existingName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name || '';
 
   useEffect(() => {
+    if (user?.firstName || user?.lastName) {
+      setFirstName(user?.firstName || '');
+      setLastName(user?.lastName || '');
+      return;
+    }
     const { firstName: f, lastName: l } = parseName(user?.name);
     setFirstName(f);
     setLastName(l);
-  }, [user?.name]);
+  }, [user?.firstName, user?.lastName, user?.name]);
 
   const performSaveName = async (f, l) => {
     const newName = [f.trim(), l.trim()].filter(Boolean).join(' ');
-    if (!newName || newName === user?.name) return;
+    if (!newName || newName === existingName) return;
     setNameSaving(true);
     try {
-      await updateProfileName(newName);
+      await updateProfileName(f.trim(), l.trim());
     } catch (err) {
       const msg = err.response?.data?.error;
       if (msg && typeof msg === 'string' && msg.includes('14 days')) {
@@ -68,7 +74,7 @@ export default function SettingsScreen() {
     const f = firstName.trim();
     const l = lastName.trim();
     const newName = [f, l].filter(Boolean).join(' ');
-    if (!newName || newName === user?.name) return;
+    if (!newName || newName === existingName) return;
     Alert.alert(
       'Confirm Name Change',
       `Are you sure you want to change your name to '${newName}'? You can only do this once every 14 days.`,
@@ -171,7 +177,7 @@ export default function SettingsScreen() {
               disabled={
                 nameSaving ||
                 !firstName.trim() ||
-                [firstName.trim(), lastName.trim()].filter(Boolean).join(' ') === user?.name
+                [firstName.trim(), lastName.trim()].filter(Boolean).join(' ') === existingName
               }
             >
               {nameSaving ? (

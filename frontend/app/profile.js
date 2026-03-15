@@ -14,7 +14,8 @@ import { Button } from '../src/components/Button';
 import { colors } from '../src/theme/colors';
 
 const RADIUS = 28;
-function parseName(fullName) {
+function parseName(firstName, lastName, fullName) {
+  if (firstName || lastName) return { firstName: firstName || '', lastName: lastName || '' };
   if (!fullName || typeof fullName !== 'string') return { firstName: '', lastName: '' };
   const parts = fullName.trim().split(/\s+/);
   if (parts.length === 0) return { firstName: '', lastName: '' };
@@ -40,14 +41,14 @@ export default function ProfileScreen() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const { firstName: f, lastName: l } = parseName(user?.name);
+    const { firstName: f, lastName: l } = parseName(user?.firstName, user?.lastName, user?.name);
     setFirstName(f);
     setLastName(l);
-  }, [user?.name]);
+  }, [user?.firstName, user?.lastName, user?.name]);
 
   useEffect(() => {
-    if (user?.name) router.replace('/');
-  }, [user?.name, router]);
+    if (user?.firstName || user?.name) router.replace('/');
+  }, [user?.firstName, user?.name, router]);
 
   const handleContinue = async () => {
     const f = firstName.trim();
@@ -58,8 +59,7 @@ export default function ProfileScreen() {
     setError('');
     setLoading(true);
     try {
-      const fullName = [f, lastName.trim()].filter(Boolean).join(' ');
-      await updateProfileName(fullName);
+      await updateProfileName(f, lastName.trim());
       router.replace('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Could not save name');

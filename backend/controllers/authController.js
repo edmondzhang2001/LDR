@@ -3,6 +3,20 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { JWT_SECRET } = require('../config');
 
+function sanitizeOptionalName(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function splitFullName(fullName) {
+  const trimmed = sanitizeOptionalName(fullName);
+  if (!trimmed) return { firstName: null, lastName: null };
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], lastName: null };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
 exports.appleLogin = async (req, res) => {
   try {
     const { identityToken, email, firstName, lastName } = req.body;
@@ -41,16 +55,17 @@ exports.appleLogin = async (req, res) => {
         typeof email === 'string' && email.trim()
           ? email.trim().toLowerCase()
           : payload.email || null;
-      const nameParts = [];
-      if (typeof firstName === 'string' && firstName.trim()) nameParts.push(firstName.trim());
-      if (typeof lastName === 'string' && lastName.trim()) nameParts.push(lastName.trim());
-      const nameToSave = nameParts.length ? nameParts.join(' ') : null;
+      const firstNameToSave = sanitizeOptionalName(firstName);
+      const lastNameToSave = sanitizeOptionalName(lastName);
+      const nameToSave = [firstNameToSave, lastNameToSave].filter(Boolean).join(' ') || null;
 
       user = await User.create({
         oauthProvider: 'apple',
         oauthId: appleSub,
         appleId: appleSub,
         email: emailToSave,
+        ...(firstNameToSave && { firstName: firstNameToSave }),
+        ...(lastNameToSave && { lastName: lastNameToSave }),
         ...(nameToSave && { name: nameToSave }),
       });
     }
@@ -60,13 +75,18 @@ exports.appleLogin = async (req, res) => {
     }
 
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
+    const parsed = splitFullName(user.name);
+    const firstNameResolved = user.firstName || parsed.firstName;
+    const lastNameResolved = user.lastName || parsed.lastName;
 
     res.status(200).json({
       token,
       user: {
         id: user._id,
         email: user.email || undefined,
-        name: user.name || undefined,
+        firstName: firstNameResolved || undefined,
+        lastName: lastNameResolved || undefined,
+        name: [firstNameResolved, lastNameResolved].filter(Boolean).join(' ') || user.name || undefined,
         partnerId: user.partnerId ?? null,
       },
     });

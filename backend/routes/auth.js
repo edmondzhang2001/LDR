@@ -12,6 +12,59 @@ const googleClient = process.env.GOOGLE_CLIENT_ID
   ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
   : null;
 
+function sanitizeOptionalName(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function splitFullName(fullName) {
+  const trimmed = sanitizeOptionalName(fullName);
+  if (!trimmed) return { firstName: null, lastName: null };
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], lastName: null };
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' '),
+  };
+}
+
+function getResolvedNames({ firstName, lastName, fullName }) {
+  const first = sanitizeOptionalName(firstName);
+  const last = sanitizeOptionalName(lastName);
+  if (first || last) {
+    return {
+      firstName: first,
+      lastName: last,
+      name: [first, last].filter(Boolean).join(' ') || null,
+    };
+  }
+  const parsed = splitFullName(fullName);
+  return {
+    firstName: parsed.firstName,
+    lastName: parsed.lastName,
+    name: [parsed.firstName, parsed.lastName].filter(Boolean).join(' ') || null,
+  };
+}
+
+function getUserNameFields(user) {
+  const firstName = user.firstName || null;
+  const lastName = user.lastName || null;
+  if (firstName || lastName) {
+    return {
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      name: [firstName, lastName].filter(Boolean).join(' ') || undefined,
+    };
+  }
+  const parsed = splitFullName(user.name);
+  return {
+    firstName: parsed.firstName || undefined,
+    lastName: parsed.lastName || undefined,
+    name: sanitizeOptionalName(user.name) || undefined,
+  };
+}
+
 function signToken(userId) {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
 }
@@ -72,7 +125,7 @@ router.get('/me', requireAuth, async (req, res) => {
       user: {
         id: user._id,
         email: user.email || undefined,
-        name: user.name || undefined,
+        ...getUserNameFields(user),
         partnerId: user.partnerId ?? null,
         reunion,
         photos,
@@ -93,7 +146,14 @@ router.post('/apple', authController.appleLogin);
 
 router.post('/oauth', async (req, res) => {
   try {
-    const { identityToken, provider, name: nameFromClient, email: emailFromClient } = req.body;
+    const {
+      identityToken,
+      provider,
+      name: nameFromClient,
+      firstName: firstNameFromClient,
+      lastName: lastNameFromClient,
+      email: emailFromClient,
+    } = req.body;
     console.log('POST /oauth received, provider:', provider);
     if (!identityToken || typeof identityToken !== 'string') {
       return res.status(400).json({ error: 'identityToken is required' });
@@ -131,10 +191,11 @@ router.post('/oauth', async (req, res) => {
       payload.email ||
       (typeof emailFromClient === 'string' && emailFromClient.trim() ? emailFromClient.trim() : null) ||
       null;
-    const nameToSave =
-      typeof nameFromClient === 'string' && nameFromClient.trim()
-        ? nameFromClient.trim()
-        : null;
+    const resolvedNames = getResolvedNames({
+      firstName: firstNameFromClient,
+      lastName: lastNameFromClient,
+      fullName: nameFromClient,
+    });
 
     let user = await User.findOne({ oauthId });
     if (!user) {
@@ -142,10 +203,17 @@ router.post('/oauth', async (req, res) => {
         oauthProvider: provider,
         oauthId,
         email,
-        ...(nameToSave && { name: nameToSave }),
+        ...(resolvedNames.name && { name: resolvedNames.name }),
+        ...(resolvedNames.firstName && { firstName: resolvedNames.firstName }),
+        ...(resolvedNames.lastName && { lastName: resolvedNames.lastName }),
       });
-    } else if (nameToSave && !user.name) {
-      user.name = nameToSave;
+    } else if (
+      resolvedNames.name &&
+      (!user.name || !user.firstName || (!user.lastName && resolvedNames.lastName))
+    ) {
+      if (!user.name) user.name = resolvedNames.name;
+      if (!user.firstName && resolvedNames.firstName) user.firstName = resolvedNames.firstName;
+      if (!user.lastName && resolvedNames.lastName) user.lastName = resolvedNames.lastName;
       await user.save();
     }
 
@@ -155,7 +223,7 @@ router.post('/oauth', async (req, res) => {
       user: {
         id: user._id,
         email: user.email || undefined,
-        name: user.name || undefined,
+        ...getUserNameFields(user),
         partnerId: user.partnerId ?? null,
       },
     });

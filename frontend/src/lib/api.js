@@ -38,9 +38,9 @@ export async function getMe() {
   return data;
 }
 
-/** PUT /api/user/profile — update display name. */
-export async function updateProfile({ name }) {
-  const { data } = await api.put('/user/profile', { name });
+/** PUT /api/user/profile — update first and last name. */
+export async function updateProfile({ firstName, lastName }) {
+  const { data } = await api.put('/user/profile', { firstName, lastName });
   return data;
 }
 
