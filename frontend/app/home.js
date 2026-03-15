@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert, Modal, TextInput, Image, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -12,6 +12,7 @@ import { PostcardStack } from '../src/components/PostcardStack';
 import { PolaroidStack } from '../src/components/PolaroidStack';
 import { MoodEditorModal } from '../src/components/MoodEditorModal';
 import { DoveCarryOverlay } from '../src/components/DoveCarryOverlay';
+import { TodaysPhotosModal } from '../src/components/TodaysPhotosModal';
 import { CustomCamera } from '../src/components/CustomCamera';
 import { updateLocation, updateBattery, getPresignedPhotoUrl } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
@@ -22,7 +23,7 @@ import { calculateDistance } from '../src/utils/distance';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, partnerId, partner, fetchPartner, refreshUser, saveReunion, endReunion, addPhotoAfterUpload, updateMood, isAnimatingSend, isSendingPhoto, setAnimatingSend, setSendingPhoto } = useAuthStore();
+  const { user, partnerId, partner, fetchPartner, refreshUser, saveReunion, endReunion, addPhotoAfterUpload, updateMood, isAnimatingSend, isSendingPhoto, setAnimatingSend, setSendingPhoto, todaysPhotos, fetchTodaysPhotos, deletePhotoFromToday } = useAuthStore();
   const [myLocation, setMyLocation] = useState(null);
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -31,7 +32,22 @@ export default function HomeScreen() {
   const [uploadCaption, setUploadCaption] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [showCustomCamera, setShowCustomCamera] = useState(false);
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const CAPTION_MAX = 60;
+
+  const handleOpenHistory = () => {
+    setHistoryModalVisible(true);
+  };
+
+  const handleFetchTodaysPhotos = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      await fetchTodaysPhotos();
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [fetchTodaysPhotos]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -439,6 +455,13 @@ export default function HomeScreen() {
       </Modal>
 
       <Pressable
+        style={({ pressed }) => [styles.historyButton, pressed && styles.fabPressed]}
+        onPress={handleOpenHistory}
+      >
+        <Ionicons name="time-outline" size={26} color={colors.white} />
+      </Pressable>
+
+      <Pressable
         style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
         onPress={handleCameraPress}
         disabled={isAnimatingSend || isSendingPhoto}
@@ -449,6 +472,15 @@ export default function HomeScreen() {
           <Ionicons name="camera" size={28} color={colors.white} />
         )}
       </Pressable>
+
+      <TodaysPhotosModal
+        visible={historyModalVisible}
+        onClose={() => setHistoryModalVisible(false)}
+        photos={todaysPhotos}
+        isLoading={historyLoading}
+        onFetch={handleFetchTodaysPhotos}
+        onDelete={deletePhotoFromToday}
+      />
     </View>
   );
 }
@@ -647,6 +679,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     marginTop: 4,
+  },
+  historyButton: {
+    position: 'absolute',
+    left: 24,
+    bottom: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.blushDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 6,
   },
   fab: {
     position: 'absolute',

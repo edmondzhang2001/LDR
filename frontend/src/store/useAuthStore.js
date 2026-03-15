@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood, updatePushToken, unlinkPartner as apiUnlinkPartner } from '../lib/api';
+import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood, updatePushToken, unlinkPartner as apiUnlinkPartner, getTodaysPhotos, deletePhoto as apiDeletePhoto } from '../lib/api';
 import { registerForPushNotificationsAsync } from '../lib/pushNotifications';
 let getAppGroupDirectory = () => null;
 let reloadWidget = () => {};
@@ -166,6 +166,8 @@ export const useAuthStore = create((set, get) => {
     isAnimatingSend: false,
     /** True while the actual photo upload (S3 + backend) is in progress. */
     isSendingPhoto: false,
+    /** Photos sent by current user in last 24h (for History modal). */
+    todaysPhotos: [],
 
     setAnimatingSend: (value) => set({ isAnimatingSend: value }),
     setSendingPhoto: (value) => set({ isSendingPhoto: value }),
@@ -467,6 +469,31 @@ export const useAuthStore = create((set, get) => {
         user: state.user ? { ...state.user, photos: data.photos ?? [] } : null,
       }));
       return data.photos;
+    },
+
+    /** Fetch today's photos (last 24h) for History modal. */
+    fetchTodaysPhotos: async () => {
+      try {
+        const photos = await getTodaysPhotos();
+        set({ todaysPhotos: photos ?? [] });
+        return photos ?? [];
+      } catch {
+        set({ todaysPhotos: [] });
+        return [];
+      }
+    },
+
+    /** Delete a photo. Optimistic update: remove from todaysPhotos first, then call API. No refetch to avoid layout flash. */
+    deletePhotoFromToday: async (photoId) => {
+      set((state) => ({
+        todaysPhotos: (state.todaysPhotos ?? []).filter((p) => p.id !== photoId),
+      }));
+      try {
+        await apiDeletePhoto(photoId);
+      } catch (e) {
+        console.error('[deletePhoto]', e?.message || e);
+        get().fetchTodaysPhotos();
+      }
     },
 
     /** Update mood (emoji, text); syncs to backend and store. */

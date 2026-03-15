@@ -77,18 +77,28 @@ TaskManager.defineTask(TASK_NAME, runWidgetUpdate);
 async function runBackgroundNotificationTask({ data, error: taskError }) {
   if (taskError) return Result.Failed;
   let photoUrl =
-    data?.notification?.data?.photoUrl ||
+    data?.notification?.data?.photoUrl ??
+    data?.data?.photoUrl ??
     (typeof data?.data?.dataString === 'string'
       ? (() => {
-          try { return JSON.parse(data.data.dataString)?.photoUrl; } catch { return null; }
+          try { return JSON.parse(data.data.dataString)?.photoUrl; } catch { return undefined; }
         })()
-      : null);
-  if (!photoUrl || typeof photoUrl !== 'string') {
-    return Result.NoData;
-  }
+      : undefined);
+  if (photoUrl === undefined) return Result.NoData;
   try {
-    await downloadToAppGroup(photoUrl);
-    reloadWidget();
+    const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
+    if (sharedPath) {
+      const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+      if (!photoUrl || typeof photoUrl !== 'string' || photoUrl.trim() === '') {
+        try {
+          const info = await FileSystem.getInfoAsync(destUri, { size: false });
+          if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
+        } catch (_) {}
+      } else {
+        await downloadToAppGroup(photoUrl);
+      }
+      reloadWidget();
+    }
   } catch (_) {}
   return Result.NewData;
 }
@@ -106,7 +116,8 @@ export function registerBackgroundWidgetTask() {
       (notification?.request?.content?.data?.contentAvailable !== false &&
         !notification?.request?.content?.title &&
         !notification?.request?.content?.body);
-    if (isSilent || notification?.request?.content?.data?.type === 'new_photo') {
+    const dataType = notification?.request?.content?.data?.type;
+    if (isSilent || dataType === 'new_photo' || dataType === 'widget_update') {
       TaskManager.runTaskAsync(TASK_NAME, {}).catch(() => {});
     }
   });

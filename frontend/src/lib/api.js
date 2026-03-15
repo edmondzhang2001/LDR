@@ -120,6 +120,17 @@ export async function addUserPhoto(url, caption = '') {
   return data;
 }
 
+/** GET /api/photo/today — photos sent by current user in last 24 hours. */
+export async function getTodaysPhotos() {
+  const { data } = await api.get('/photo/today');
+  return data.photos ?? [];
+}
+
+/** DELETE /api/photo/:photoId — delete a photo. */
+export async function deletePhoto(photoId) {
+  await api.delete(`/photo/${encodeURIComponent(photoId)}`);
+}
+
 /** POST /api/user/sync-subscription — tell backend to set isPremium from client (self-heal after RC confirms entitlement). */
 export async function syncSubscription() {
   const { data } = await api.post('/user/sync-subscription');

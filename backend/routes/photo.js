@@ -3,6 +3,9 @@ const express = require('express');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { requireAuth } = require('../middleware/auth');
+const User = require('../models/User');
+const Expo = require('expo-server-sdk').Expo;
+const expoPush = new Expo();
 
 const router = express.Router();
 const BUCKET = process.env.S3_BUCKET_NAME || 'ldr-uploads';
@@ -19,6 +22,69 @@ const s3Client =
         },
       })
     : null;
+
+/** GET /api/photo/today — photos sent by current user in last 24 hours, sorted newest first. */
+router.get('/today', requireAuth, async (req, res) => {
+  try {
+    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const photos = (req.user.photos || [])
+      .filter((p) => new Date(p.createdAt) >= cutoff24h)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .map((p) => ({
+        id: p._id.toString(),
+        url: p.url,
+        thumbnailUrl: p.thumbnailUrl || undefined,
+        createdAt: new Date(p.createdAt).toISOString(),
+        caption: p.caption || '',
+      }));
+    res.json({ photos });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** DELETE /api/photo/:photoId — delete a photo. If it was partner's widget photo, push update to partner. */
+router.delete('/:photoId', requireAuth, async (req, res) => {
+  try {
+    const { photoId } = req.params;
+    const photo = req.user.photos?.id(photoId);
+    if (!photo) {
+      return res.status(404).json({ error: 'Photo not found' });
+    }
+    const deletedUrl = photo.thumbnailUrl || photo.url;
+    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const in24h = (req.user.photos || []).filter((p) => new Date(p.createdAt) >= cutoff24h).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const wasWidgetPhoto = in24h.length > 0 && (in24h[0].thumbnailUrl || in24h[0].url) === deletedUrl;
+
+    req.user.photos.pull(photoId);
+    await req.user.save();
+
+    const partnerId = req.user.partnerId;
+    if (wasWidgetPhoto && partnerId && Expo.isExpoPushToken) {
+      try {
+        const partner = await User.findById(partnerId).select('pushToken').lean();
+        const pushToken = partner?.pushToken;
+        if (pushToken && Expo.isExpoPushToken(pushToken)) {
+          const remaining = (req.user.photos || []).filter((p) => new Date(p.createdAt) >= cutoff24h).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          const nextUrl = remaining.length > 0 ? (remaining[0].thumbnailUrl || remaining[0].url) : null;
+          await expoPush.sendPushNotificationsAsync([
+            {
+              to: pushToken,
+              data: { photoUrl: nextUrl ?? '', type: 'widget_update' },
+              _contentAvailable: true,
+            },
+          ]);
+        }
+      } catch (pushErr) {
+        console.error('[photo delete push]', pushErr?.message || pushErr);
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /** GET /api/photo/presigned-url — generate presigned PUT URL and final URL for Daily Story upload. */
 router.get('/presigned-url', requireAuth, async (req, res) => {
