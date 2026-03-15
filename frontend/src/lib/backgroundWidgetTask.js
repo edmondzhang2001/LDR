@@ -74,51 +74,112 @@ TaskManager.defineTask(TASK_NAME, runWidgetUpdate);
  * Background notification task: when a push arrives (app closed/background),
  * extract photoUrl from payload, download to App Group, reload widget.
  */
+/** Extract photoUrl from background task payload (iOS/Android vary; structure differs by platform). */
+function getPhotoUrlFromTaskPayload(data) {
+  if (!data) return undefined;
+  const d = data?.data;
+  if (d && typeof d.photoUrl === 'string') return d.photoUrl;
+  if (d && typeof d.dataString === 'string') {
+    try {
+      const parsed = JSON.parse(d.dataString);
+      return parsed?.photoUrl ?? parsed?.data?.photoUrl;
+    } catch { return undefined; }
+  }
+  if (data?.notification?.data?.photoUrl) return data.notification.data.photoUrl;
+  const body = data?.body ?? data?.payload;
+  if (body && (body.photoUrl || body.data?.photoUrl)) return body.photoUrl ?? body.data.photoUrl;
+  if (typeof data?.photoUrl === 'string') return data.photoUrl;
+  if (typeof data?.data?.photoUrl === 'string') return data.data.photoUrl;
+  return undefined;
+}
+
 async function runBackgroundNotificationTask({ data, error: taskError }) {
-  if (taskError) return Result.Failed;
-  let photoUrl =
-    data?.notification?.data?.photoUrl ??
-    data?.data?.photoUrl ??
-    (typeof data?.data?.dataString === 'string'
-      ? (() => {
-          try { return JSON.parse(data.data.dataString)?.photoUrl; } catch { return undefined; }
-        })()
-      : undefined);
+  if (taskError) {
+    console.warn('[Duva BG] task error:', String(taskError));
+    return Result.Failed;
+  }
+  const photoUrl = getPhotoUrlFromTaskPayload(data);
+  console.warn('[Duva BG] payload keys:', data ? Object.keys(data).join(',') : 'null', '| photoUrl:', photoUrl ? 'ok' : 'MISSING');
   if (photoUrl === undefined) return Result.NoData;
   try {
     const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
-    if (sharedPath) {
-      const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
-      if (!photoUrl || typeof photoUrl !== 'string' || photoUrl.trim() === '') {
-        try {
-          const info = await FileSystem.getInfoAsync(destUri, { size: false });
-          if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
-        } catch (_) {}
-      } else {
-        await downloadToAppGroup(photoUrl);
-      }
-      reloadWidget();
+    if (!sharedPath) {
+      console.warn('[Duva BG] App Group path is null - shared-storage module may have failed to load');
+      return Result.NoData;
     }
-  } catch (_) {}
+    const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+    const urlStr = typeof photoUrl === 'string' ? photoUrl.trim() : '';
+    if (!urlStr) {
+      try {
+        const info = await FileSystem.getInfoAsync(destUri, { size: false });
+        if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
+      } catch (_) {}
+    } else {
+      const ok = await downloadToAppGroup(urlStr);
+      if (!ok) console.warn('[Duva BG] download failed');
+    }
+    reloadWidget();
+  } catch (e) {
+    console.warn('[Duva BG] exception:', e?.message || e);
+  }
   return Result.NewData;
 }
 
 TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, runBackgroundNotificationTask);
 
+/** Extract photoUrl from notification data (used when app is running). */
+function getPhotoUrlFromNotification(notification) {
+  const d = notification?.request?.content?.data;
+  if (!d) return null;
+  return d.photoUrl ?? null;
+}
+
+/** Update widget using photoUrl from push payload. No API call - works in background. */
+async function updateWidgetFromPhotoUrl(photoUrl) {
+  try {
+    const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
+    if (!sharedPath) return;
+    const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+    if (!photoUrl || typeof photoUrl !== 'string' || photoUrl.trim() === '') {
+      try {
+        const info = await FileSystem.getInfoAsync(destUri, { size: false });
+        if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
+      } catch (_) {}
+    } else {
+      await downloadToAppGroup(photoUrl);
+    }
+    reloadWidget();
+  } catch (e) {
+    console.warn('[updateWidgetFromPhotoUrl]', e?.message || e);
+  }
+}
+
 /**
  * Register the background widget task and listen for silent push notifications.
  * Call once on app boot (e.g. from _layout.js).
+ * When a push arrives with photoUrl, use it directly (no API call) so the widget
+ * can update reliably even when the app is backgrounded.
  */
 export function registerBackgroundWidgetTask() {
   Notifications.addNotificationReceivedListener((notification) => {
-    const isSilent =
-      notification?.request?.content?.data?.contentAvailable === true ||
-      (notification?.request?.content?.data?.contentAvailable !== false &&
-        !notification?.request?.content?.title &&
-        !notification?.request?.content?.body);
     const dataType = notification?.request?.content?.data?.type;
-    if (isSilent || dataType === 'new_photo' || dataType === 'widget_update') {
-      TaskManager.runTaskAsync(TASK_NAME, {}).catch(() => {});
+    const photoUrl = getPhotoUrlFromNotification(notification);
+    if (dataType === 'new_photo' || dataType === 'widget_update') {
+      if (photoUrl !== null && photoUrl !== undefined) {
+        updateWidgetFromPhotoUrl(photoUrl);
+      } else {
+        TaskManager.runTaskAsync(TASK_NAME, {}).catch(() => {});
+      }
+    } else {
+      const isSilent =
+        notification?.request?.content?.data?.contentAvailable === true ||
+        (!notification?.request?.content?.title &&
+          !notification?.request?.content?.body);
+      if (isSilent && photoUrl != null) {
+        updateWidgetFromPhotoUrl(photoUrl);
+      } else if (isSilent) {
+        TaskManager.runTaskAsync(TASK_NAME, {}).catch(() => {});
+      }
     }
   });
 }

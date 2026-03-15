@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as Battery from 'expo-battery';
 import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { Card } from '../src/components/Card';
@@ -228,7 +229,15 @@ export default function HomeScreen() {
               allowsEditing: false,
             });
             if (result.canceled || !result.assets?.[0]?.uri) return;
-            openUploadWithPreview(result.assets[0].uri);
+            try {
+              const { uri } = await manipulateAsync(result.assets[0].uri, [], {
+                format: SaveFormat.JPEG,
+                compress: 0.85,
+              });
+              openUploadWithPreview(uri);
+            } catch (e) {
+              openUploadWithPreview(result.assets[0].uri);
+            }
           },
         },
         {
