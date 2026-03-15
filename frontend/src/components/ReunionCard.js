@@ -8,7 +8,7 @@ import { getCountdown, formatCountdown } from '../utils/countdown';
 
 const RADIUS = 24;
 
-export function ReunionCard({ reunion, saveReunion, endReunion, glass, inTray }) {
+export function ReunionCard({ reunion, saveReunion, endReunion, onSetWidgetPhoto, glass, inTray }) {
   const [showPicker, setShowPicker] = useState(false);
   const [pickerDate, setPickerDate] = useState(() => {
     const d = new Date();
@@ -140,13 +140,25 @@ export function ReunionCard({ reunion, saveReunion, endReunion, glass, inTray })
       <Card style={[styles.card, styles.cardDefault, inTray && styles.cardTray]} glass={glass || inTray}>
         <View style={styles.countdownRow}>
           <Text style={ts(styles.countdownValue)}>{countdownText}</Text>
-          <Pressable
-            style={({ pressed }) => [styles.editIconWrap, pressed && styles.buttonPressed]}
-            onPress={handleOpenPicker}
-            hitSlop={12}
-          >
-            <Ionicons name="pencil-outline" size={20} color={inTray ? trayTextColor : colors.textMuted} />
-          </Pressable>
+          <View style={styles.countdownIcons}>
+            {onSetWidgetPhoto && (
+              <Pressable
+                style={({ pressed }) => [styles.editIconWrap, pressed && styles.buttonPressed]}
+                onPress={onSetWidgetPhoto}
+                hitSlop={12}
+                accessibilityLabel="Set calendar widget photo"
+              >
+                <Ionicons name="image-outline" size={20} color={inTray ? trayTextColor : colors.textMuted} />
+              </Pressable>
+            )}
+            <Pressable
+              style={({ pressed }) => [styles.editIconWrap, pressed && styles.buttonPressed]}
+              onPress={handleOpenPicker}
+              hitSlop={12}
+            >
+              <Ionicons name="pencil-outline" size={20} color={inTray ? trayTextColor : colors.textMuted} />
+            </Pressable>
+          </View>
         </View>
         <Text style={ts(styles.countdownLabel)}>until you're together</Text>
       </Card>
@@ -250,6 +262,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 4,
+  },
+  countdownIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   countdownValue: {
     fontSize: 26,

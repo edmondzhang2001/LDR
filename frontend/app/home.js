@@ -6,7 +6,7 @@ import * as Battery from 'expo-battery';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from '../src/store/useAuthStore';
+import { useAuthStore, syncCalendarWidgetPhoto } from '../src/store/useAuthStore';
 import { Card } from '../src/components/Card';
 import { ReunionCard } from '../src/components/ReunionCard';
 import { PostcardStack } from '../src/components/PostcardStack';
@@ -35,11 +35,55 @@ export default function HomeScreen() {
   const [showCustomCamera, setShowCustomCamera] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [widgetPhotoPreviewUri, setWidgetPhotoPreviewUri] = useState(null);
+  const [widgetPhotoSyncing, setWidgetPhotoSyncing] = useState(false);
   const CAPTION_MAX = 60;
 
   const handleOpenHistory = () => {
     setHistoryModalVisible(true);
   };
+
+  const handleOpenWidgetPhotoPicker = useCallback(async () => {
+    if (Platform.OS !== 'ios') return;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    try {
+      const { uri } = await manipulateAsync(result.assets[0].uri, [], {
+        format: SaveFormat.JPEG,
+        compress: 0.85,
+      });
+      setWidgetPhotoPreviewUri(uri);
+    } catch (e) {
+      setWidgetPhotoPreviewUri(result.assets[0].uri);
+    }
+  }, []);
+
+  const handleConfirmWidgetPhoto = useCallback(async () => {
+    if (!widgetPhotoPreviewUri || Platform.OS !== 'ios') return;
+    setWidgetPhotoSyncing(true);
+    try {
+      const ok = await syncCalendarWidgetPhoto(widgetPhotoPreviewUri);
+      setWidgetPhotoPreviewUri(null);
+      if (ok) {
+        Alert.alert('Done', 'Your countdown widget background has been updated.');
+      } else {
+        Alert.alert('Something went wrong', 'Could not update the widget. Please try again.');
+      }
+    } finally {
+      setWidgetPhotoSyncing(false);
+    }
+  }, [widgetPhotoPreviewUri]);
+
+  const handleSetCalendarWidgetPhoto = useCallback(() => {
+    handleOpenWidgetPhotoPicker();
+  }, [handleOpenWidgetPhotoPicker]);
 
   const handleFetchTodaysPhotos = useCallback(async () => {
     setHistoryLoading(true);
@@ -394,6 +438,7 @@ export default function HomeScreen() {
             reunion={user.reunion}
             saveReunion={saveReunion}
             endReunion={endReunion}
+            onSetWidgetPhoto={Platform.OS === 'ios' ? handleSetCalendarWidgetPhoto : undefined}
           />
         </View>
       </ScrollView>
@@ -404,6 +449,43 @@ export default function HomeScreen() {
         onSave={(emoji, text) => updateMood(emoji ?? '', text ?? '')}
         onClose={() => setMoodModalVisible(false)}
       />
+
+      <Modal visible={!!widgetPhotoPreviewUri} transparent animationType="slide">
+        <Pressable style={styles.uploadModalBackdrop} onPress={() => setWidgetPhotoPreviewUri(null)}>
+          <View style={[styles.uploadModalSheet, styles.widgetPhotoSheet]} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.uploadModalTitle}>Widget background</Text>
+            <Text style={styles.widgetPhotoSubtitle}>This photo will appear blurred behind your countdown</Text>
+            <Image source={{ uri: widgetPhotoPreviewUri }} style={styles.uploadPreviewImage} resizeMode="cover" />
+            <Pressable
+              style={({ pressed }) => [styles.widgetPhotoChooseAnother, pressed && styles.uploadButtonPressed]}
+              onPress={handleOpenWidgetPhotoPicker}
+            >
+              <Ionicons name="images-outline" size={16} color={colors.skyDark} />
+              <Text style={styles.widgetPhotoChooseAnotherText}>Choose another</Text>
+            </Pressable>
+            <View style={styles.uploadModalButtons}>
+              <Pressable
+                style={({ pressed }) => [styles.uploadCancelButton, pressed && styles.uploadButtonPressed]}
+                onPress={() => setWidgetPhotoPreviewUri(null)}
+              >
+                <Text style={styles.uploadCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.uploadConfirmButton, pressed && styles.uploadButtonPressed]}
+                onPress={handleConfirmWidgetPhoto}
+                disabled={widgetPhotoSyncing}
+              >
+                {widgetPhotoSyncing ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.uploadConfirmText}>Use for widget</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
 
       <Modal visible={!!uploadPreviewUri && !isAnimatingSend} transparent animationType="slide">
         <KeyboardAvoidingView
@@ -800,5 +882,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.white,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.textMuted + '99',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  widgetPhotoSheet: {
+    maxHeight: '80%',
+  },
+  widgetPhotoSubtitle: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginBottom: 16,
+  },
+  widgetPhotoChooseAnother: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  widgetPhotoChooseAnotherText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.skyDark,
   },
 });

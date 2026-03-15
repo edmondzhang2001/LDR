@@ -76,7 +76,8 @@ async function writeWidgetData(partner, reunion) {
         : null;
     const location =
       partner?.meetingLocation ?? partner?.location?.city ?? null;
-    const calendarPayload = { daysRemaining, location };
+    const partnerName = partner?.name ?? null;
+    const calendarPayload = { daysRemaining, location, partnerName };
     await FileSystem.writeAsStringAsync(
       `${baseUri}/calendar.json`,
       JSON.stringify(calendarPayload)
@@ -138,6 +139,47 @@ export async function syncWidgetPhoto(photoUrl) {
     reloadWidget();
   } catch (e) {
     console.error('[syncWidgetPhoto]', e?.message || e);
+  }
+}
+
+/**
+ * Sync the calendar widget background photo: copy a local file (e.g. from ImagePicker)
+ * into the App Group as calendar_widget_photo.jpg so the DuvaCalendarWidget can show it blurred.
+ * Uses base64 read/write for reliable cross-container copy on iOS.
+ */
+export async function syncCalendarWidgetPhoto(localUri) {
+  try {
+    const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
+    if (!sharedPath) {
+      console.warn('[syncCalendarWidgetPhoto] App Group directory unavailable');
+      return false;
+    }
+    const destUri = 'file://' + sharedPath + '/calendar_widget_photo.jpg';
+
+    if (!localUri || typeof localUri !== 'string' || localUri.trim() === '') {
+      try {
+        const info = await FileSystem.getInfoAsync(destUri, { size: false });
+        if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
+      } catch (_) {}
+      reloadWidget();
+      return true;
+    }
+
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    try {
+      const existing = await FileSystem.getInfoAsync(destUri, { size: false });
+      if (existing.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
+    } catch (_) {}
+    await FileSystem.writeAsStringAsync(destUri, base64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    reloadWidget();
+    return true;
+  } catch (e) {
+    console.error('[syncCalendarWidgetPhoto]', e?.message || e);
+    return false;
   }
 }
 
