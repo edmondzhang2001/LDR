@@ -43,13 +43,15 @@ struct DuvaCalendarWidgetEntryView : View {
             Text("SEEING THEM IN")
                 .font(.system(size: 10, weight: .black))
                 .tracking(2)
-                .foregroundColor(.gray)
+                .foregroundColor(Color(white: 0.35))
             
             Text("\(entry.daysRemaining)")
                 .font(.system(size: 60, weight: .ultraLight, design: .serif))
+                .foregroundColor(.black)
             
             Text(entry.daysRemaining == 1 ? "DAY" : "DAYS")
                 .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.black)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(red: 255/255, green: 248/255, blue: 245/255))
@@ -63,7 +65,7 @@ struct DuvaCalendarWidget: Widget {
         StaticConfiguration(kind: kind, provider: CalendarProvider()) { entry in
             if #available(iOS 17.0, *) {
                 DuvaCalendarWidgetEntryView(entry: entry)
-                    .containerBackground(.fill.tertiary, for: .widget)
+                    .containerBackground(Color(red: 255/255, green: 248/255, blue: 245/255), for: .widget)
             } else {
                 DuvaCalendarWidgetEntryView(entry: entry)
             }
@@ -71,5 +73,6 @@ struct DuvaCalendarWidget: Widget {
         .configurationDisplayName("Duva Countdown")
         .description("Days until you meet again.")
         .supportedFamilies([.systemSmall])
+        .contentMarginsDisabled()
     }
 }

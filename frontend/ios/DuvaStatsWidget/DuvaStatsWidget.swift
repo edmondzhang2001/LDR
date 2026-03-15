@@ -62,14 +62,16 @@ struct DuvaStatsWidgetEntryView : View {
                 Text("Streak")
                     .font(.caption)
                     .fontWeight(.bold)
+                    .foregroundColor(.black)
             }
             
             Text("\(entry.streak) Days")
                 .font(.system(size: 32, weight: .heavy, design: .rounded))
+                .foregroundColor(.black)
             
             Text("with \(entry.name)")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color(white: 0.35))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding()
@@ -86,7 +88,7 @@ struct DuvaStatsWidget: Widget {
         StaticConfiguration(kind: kind, provider: StatsProvider()) { entry in
             if #available(iOS 17.0, *) {
                 DuvaStatsWidgetEntryView(entry: entry)
-                    .containerBackground(.fill.tertiary, for: .widget)
+                    .containerBackground(Color(red: 255/255, green: 248/255, blue: 245/255), for: .widget)
             } else {
                 DuvaStatsWidgetEntryView(entry: entry)
             }
@@ -94,5 +96,6 @@ struct DuvaStatsWidget: Widget {
         .configurationDisplayName("Duva Stats")
         .description("Keep track of your daily streak.")
         .supportedFamilies([.systemSmall])
+        .contentMarginsDisabled()
     }
 }

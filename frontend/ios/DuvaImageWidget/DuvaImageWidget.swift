@@ -60,10 +60,6 @@ struct DuvaImageWidgetEntryView: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
-                    .overlay(
-                        Rectangle()
-                            .stroke(Color.white, lineWidth: 8)
-                    )
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: "heart.fill")
@@ -109,5 +105,6 @@ struct DuvaImageWidget: Widget {
         .configurationDisplayName("Duva Photo")
         .description("See the latest photo from your partner.")
         .supportedFamilies([.systemSmall, .systemLarge])
+        .contentMarginsDisabled()
     }
 }
