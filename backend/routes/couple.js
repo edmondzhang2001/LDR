@@ -74,13 +74,18 @@ router.post('/pair/join', requireAuth, async (req, res) => {
       user1: creator._id,
       user2: joiner._id,
     });
+    const bothPremium = Boolean(creator.isPremium || joiner.isPremium);
     await User.findByIdAndUpdate(creator._id, {
       partnerId: joiner._id,
       pairingCode: null,
       pairingCodeExpiresAt: null,
+      ...(bothPremium && { isPremium: true }),
     });
-    await User.findByIdAndUpdate(joiner._id, { partnerId: creator._id });
-    const hasPremiumAccess = Boolean(joiner.isPremium || creator.isPremium);
+    await User.findByIdAndUpdate(joiner._id, {
+      partnerId: creator._id,
+      ...(bothPremium && { isPremium: true }),
+    });
+    const hasPremiumAccess = bothPremium;
     res.status(201).json({
       coupleId: couple._id,
       partnerId: creator._id,

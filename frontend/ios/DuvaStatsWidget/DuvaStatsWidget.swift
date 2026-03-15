@@ -69,7 +69,7 @@ struct DuvaStatsWidgetEntryView : View {
                 .font(.system(size: 32, weight: .heavy, design: .rounded))
                 .foregroundColor(.black)
             
-            Text("with \(entry.name)")
+            Text("with \(entry.name.split(separator: " ").first.map(String.init) ?? entry.name)")
                 .font(.caption)
                 .foregroundColor(Color(white: 0.35))
         }

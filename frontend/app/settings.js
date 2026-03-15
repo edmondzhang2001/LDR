@@ -25,17 +25,30 @@ const SHADOW = {
   elevation: 4,
 };
 
+function parseName(fullName) {
+  if (!fullName || typeof fullName !== 'string') return { firstName: '', lastName: '' };
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 0) return { firstName: '', lastName: '' };
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, partnerId, updateProfileName, logout, unlinkPartner } = useAuthStore();
-  const [name, setName] = useState(user?.name ?? '');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
 
   useEffect(() => {
-    if (user?.name != null) setName(user.name);
+    const { firstName: f, lastName: l } = parseName(user?.name);
+    setFirstName(f);
+    setLastName(l);
   }, [user?.name]);
 
-  const performSaveName = async (newName) => {
+  const performSaveName = async (f, l) => {
+    const newName = [f.trim(), l.trim()].filter(Boolean).join(' ');
+    if (!newName || newName === user?.name) return;
     setNameSaving(true);
     try {
       await updateProfileName(newName);
@@ -52,14 +65,16 @@ export default function SettingsScreen() {
   };
 
   const handleSaveName = () => {
-    const trimmed = name.trim();
-    if (!trimmed || trimmed === user?.name) return;
+    const f = firstName.trim();
+    const l = lastName.trim();
+    const newName = [f, l].filter(Boolean).join(' ');
+    if (!newName || newName === user?.name) return;
     Alert.alert(
       'Confirm Name Change',
-      `Are you sure you want to change your name to '${trimmed}'? You can only do this once every 14 days.`,
+      `Are you sure you want to change your name to '${newName}'? You can only do this once every 14 days.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm', style: 'default', onPress: () => performSaveName(trimmed) },
+        { text: 'Confirm', style: 'default', onPress: () => performSaveName(f, l) },
       ]
     );
   };
@@ -126,32 +141,45 @@ export default function SettingsScreen() {
           {/* Change Name */}
           <View style={styles.card}>
             <Text style={styles.cardLabel}>Display name</Text>
-            <View style={styles.nameRow}>
+            <View style={styles.nameInputs}>
               <TextInput
                 style={styles.nameInput}
-                value={name}
-                onChangeText={setName}
-                placeholder="Your name"
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="First name"
                 placeholderTextColor={colors.textMuted}
                 autoCapitalize="words"
                 editable={!nameSaving}
               />
-              <Pressable
-                style={({ pressed }) => [
-                  styles.saveNameButton,
-                  pressed && styles.buttonPressed,
-                  nameSaving && styles.saveNameButtonDisabled,
-                ]}
-                onPress={handleSaveName}
-                disabled={nameSaving || !name.trim() || name.trim() === user?.name}
-              >
-                {nameSaving ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.saveNameText}>Save</Text>
-                )}
-              </Pressable>
+              <TextInput
+                style={[styles.nameInput, { marginTop: 12 }]}
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Last name"
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="words"
+                editable={!nameSaving}
+              />
             </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.saveNameButton,
+                pressed && styles.buttonPressed,
+                nameSaving && styles.saveNameButtonDisabled,
+              ]}
+              onPress={handleSaveName}
+              disabled={
+                nameSaving ||
+                !firstName.trim() ||
+                [firstName.trim(), lastName.trim()].filter(Boolean).join(' ') === user?.name
+              }
+            >
+              {nameSaving ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.saveNameText}>Save</Text>
+              )}
+            </Pressable>
           </View>
 
           {/* Unlink Partner — destructive look (red outline), only when paired */}
@@ -210,13 +238,11 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 10,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  nameInputs: {
+    marginBottom: 16,
   },
   nameInput: {
-    flex: 1,
+    width: '100%',
     backgroundColor: colors.background,
     borderRadius: 16,
     paddingVertical: 12,

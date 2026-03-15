@@ -14,6 +14,14 @@ import { Button } from '../src/components/Button';
 import { colors } from '../src/theme/colors';
 
 const RADIUS = 28;
+function parseName(fullName) {
+  if (!fullName || typeof fullName !== 'string') return { firstName: '', lastName: '' };
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 0) return { firstName: '', lastName: '' };
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
 const SHADOW = {
   shadowColor: colors.shadow,
   shadowOffset: { width: 0, height: 6 },
@@ -26,12 +34,15 @@ export default function ProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const updateProfileName = useAuthStore((s) => s.updateProfileName);
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (user?.name) setName(user.name);
+    const { firstName: f, lastName: l } = parseName(user?.name);
+    setFirstName(f);
+    setLastName(l);
   }, [user?.name]);
 
   useEffect(() => {
@@ -39,15 +50,16 @@ export default function ProfileScreen() {
   }, [user?.name, router]);
 
   const handleContinue = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setError('Please enter a name or nickname');
+    const f = firstName.trim();
+    if (!f) {
+      setError('Please enter your first name');
       return;
     }
     setError('');
     setLoading(true);
     try {
-      await updateProfileName(trimmed);
+      const fullName = [f, lastName.trim()].filter(Boolean).join(' ');
+      await updateProfileName(fullName);
       router.replace('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Could not save name');
@@ -69,16 +81,29 @@ export default function ProfileScreen() {
         </View>
         <Text style={styles.title}>What should your partner call you?</Text>
         <Text style={styles.subtitle}>
-          Pick a nickname or display name—something cozy they’ll see in the app.
+          Enter your name—something cozy they’ll see in the app.
         </Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Your name or nickname"
+          placeholder="First name"
           placeholderTextColor={colors.textMuted}
-          value={name}
+          value={firstName}
           onChangeText={(t) => {
-            setName(t);
+            setFirstName(t);
+            if (error) setError('');
+          }}
+          autoCapitalize="words"
+          autoCorrect={false}
+          editable={!loading}
+        />
+        <TextInput
+          style={[styles.input, { marginTop: 12 }]}
+          placeholder="Last name (optional)"
+          placeholderTextColor={colors.textMuted}
+          value={lastName}
+          onChangeText={(t) => {
+            setLastName(t);
             if (error) setError('');
           }}
           autoCapitalize="words"
@@ -92,7 +117,7 @@ export default function ProfileScreen() {
           title="Continue"
           onPress={handleContinue}
           loading={loading}
-          disabled={!name.trim()}
+          disabled={!firstName.trim()}
         />
       </View>
     </KeyboardAvoidingView>

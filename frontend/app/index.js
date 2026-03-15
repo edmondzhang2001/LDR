@@ -17,12 +17,12 @@ export default function Index() {
       router.replace('/onboarding');
       return;
     }
-    if (user.hasPremiumAccess !== true) {
-      router.replace('/paywall');
-      return;
-    }
     if (!user.name) {
       router.replace('/profile');
+      return;
+    }
+    if (user.hasPremiumAccess !== true) {
+      router.replace('/paywall');
       return;
     }
     if (partnerId == null) {

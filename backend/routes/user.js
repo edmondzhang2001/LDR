@@ -287,8 +287,11 @@ router.post('/sync-subscription', requireAuth, async (req, res) => {
       const exp = e?.expires_date ?? e?.expiration_date;
       return exp && new Date(exp) > now;
     });
+    await User.findByIdAndUpdate(req.user._id, { isPremium: !!hasPremium });
+    if (hasPremium && req.user.partnerId) {
+      await User.findByIdAndUpdate(req.user.partnerId, { isPremium: true });
+    }
     req.user.isPremium = !!hasPremium;
-    await req.user.save();
     res.json({ ok: true, isPremium: req.user.isPremium });
   } catch (err) {
     res.status(500).json({ error: err.message });

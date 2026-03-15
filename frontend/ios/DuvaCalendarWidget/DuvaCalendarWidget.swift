@@ -55,11 +55,11 @@ struct DuvaCalendarWidgetEntryView : View {
     var entry: CalendarEntry
 
     private var partnerLabel: String {
-        let name = entry.partnerName?.trimmingCharacters(in: .whitespaces).uppercased()
-        if let n = name, !n.isEmpty {
-            return "SEEING \(n) IN"
+        guard let full = entry.partnerName?.trimmingCharacters(in: .whitespaces), !full.isEmpty else {
+            return "SEEING THEM IN"
         }
-        return "SEEING THEM IN"
+        let first = full.split(separator: " ").first.map(String.init) ?? full
+        return "SEEING \(first.uppercased()) IN"
     }
 
     var body: some View {
@@ -68,14 +68,7 @@ struct DuvaCalendarWidgetEntryView : View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
-                    .blur(radius: 40)
-                    .overlay(
-                        LinearGradient(
-                            colors: [colorCream.opacity(0.85), colorCream.opacity(0.7)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .blur(radius: 2)
             } else {
                 colorCream
             }

@@ -19,32 +19,68 @@ function requireWebhookAuth(req, res, next) {
   next();
 }
 
+/** Resolve a MongoDB ObjectId from RevenueCat event (app_user_id, original_app_user_id, or aliases). */
+function resolveAppUserId(event) {
+  const candidates = [
+    event?.app_user_id,
+    event?.original_app_user_id,
+    ...(Array.isArray(event?.aliases) ? event.aliases : []),
+  ].filter(Boolean);
+  const id = candidates.find((c) => mongoose.Types.ObjectId.isValid(String(c)));
+  return id ? String(id) : null;
+}
+
 /**
  * RevenueCat webhook: receive subscription events and sync isPremium to our User model.
- * Payload is the event object (type, app_user_id, etc.). app_user_id is our MongoDB User _id.
+ * Payload may be the event object at top level or under body.event. app_user_id is our MongoDB User _id.
  * Set REVENUECAT_WEBHOOK_SECRET in env and the same value as Authorization header in RevenueCat dashboard.
  */
 router.post('/revenuecat', requireWebhookAuth, async (req, res) => {
   try {
-    const event = req.body?.event ?? req.body;
-    const appUserId = event?.app_user_id ?? req.body?.app_user_id;
-    const type = event?.type ?? req.body?.type;
+    const body = req.body || {};
+    const event = body.event || body;
+    const type = event?.type ?? body?.type;
 
-    if (!appUserId || !type) {
-      return res.status(400).json({ error: 'Missing app_user_id or type' });
+    if (!type) {
+      console.warn('[RevenueCat webhook] Missing type in payload');
+      return res.status(400).json({ error: 'Missing type' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(appUserId)) {
+    const appUserId = resolveAppUserId(event);
+    if (!appUserId) {
+      console.warn('[RevenueCat webhook] No valid MongoDB app_user_id in event', {
+        type,
+        app_user_id: event?.app_user_id,
+        original_app_user_id: event?.original_app_user_id,
+      });
       return res.status(200).json({ received: true });
     }
 
-    const grantAccess = type === 'INITIAL_PURCHASE' || type === 'RENEWAL';
+    const grantAccess =
+      type === 'INITIAL_PURCHASE' ||
+      type === 'RENEWAL' ||
+      type === 'TEMPORARY_ENTITLEMENT_GRANT' ||
+      type === 'UNCANCELLATION';
     const revokeAccess = type === 'EXPIRATION' || type === 'CANCELLATION';
 
     if (grantAccess) {
-      await User.findByIdAndUpdate(appUserId, { isPremium: true });
+      const u = await User.findByIdAndUpdate(appUserId, { isPremium: true });
+      if (!u) {
+        console.warn('[RevenueCat webhook] User not found for app_user_id', appUserId);
+      } else {
+        console.log('[RevenueCat webhook] Set isPremium=true for user', appUserId, 'event:', type);
+      }
+      const purchaser = await User.findById(appUserId).select('partnerId').lean();
+      if (purchaser?.partnerId) {
+        await User.findByIdAndUpdate(purchaser.partnerId, { isPremium: true });
+      }
     } else if (revokeAccess) {
       await User.findByIdAndUpdate(appUserId, { isPremium: false });
+      const purchaser = await User.findById(appUserId).select('partnerId').lean();
+      if (purchaser?.partnerId) {
+        await User.findByIdAndUpdate(purchaser.partnerId, { isPremium: false });
+      }
+      console.log('[RevenueCat webhook] Set isPremium=false for user', appUserId, 'event:', type);
     }
 
     res.status(200).json({ received: true });

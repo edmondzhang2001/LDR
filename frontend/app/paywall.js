@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Purchases from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
@@ -12,6 +13,7 @@ const RADIUS = 24;
 
 export default function PaywallScreen() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const refreshUser = useAuthStore((s) => s.refreshUser);
   const setHasPremiumAccessOptimistic = useAuthStore((s) => s.setHasPremiumAccessOptimistic);
   const logout = useAuthStore((s) => s.logout);
@@ -21,13 +23,9 @@ export default function PaywallScreen() {
   const handleSuccessfulPurchase = async () => {
     setIsVerifyingPurchase(true);
     try {
-      const user = await refreshUser();
-      if (user?.hasPremiumAccess) {
-        router.replace('/');
-        return;
-      }
       setHasPremiumAccessOptimistic(true);
-      syncSubscription().catch(() => {});
+      await syncSubscription();
+      await refreshUser();
       router.replace('/');
     } finally {
       setIsVerifyingPurchase(false);
@@ -37,6 +35,11 @@ export default function PaywallScreen() {
   const handleOpenPaywall = async () => {
     setLoading(true);
     try {
+      if (Purchases && user?.id) {
+        try {
+          await Purchases.logIn(user.id);
+        } catch (_) {}
+      }
       const paywallResult = await RevenueCatUI.presentPaywall();
       if (paywallResult === PAYWALL_RESULT.PURCHASED || paywallResult === PAYWALL_RESULT.RESTORED) {
         await handleSuccessfulPurchase();
