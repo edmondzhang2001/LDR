@@ -10,6 +10,8 @@ import {
   Image,
   TextInput,
   Animated,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import AnimatedReanimated, {
   useSharedValue,
@@ -186,6 +188,8 @@ export function OnboardingFlow() {
   const router = useRouter();
   const [phase, setPhase] = useState('intro');
   const [slideIndex, setSlideIndex] = useState(0);
+  const [isPartnerNameSubmitting, setIsPartnerNameSubmitting] = useState(false);
+  const [submittedPartnerName, setSubmittedPartnerName] = useState('');
   const [scienceButtonEnabled, setScienceButtonEnabled] = useState(false);
   const [scienceInsightVisible, setScienceInsightVisible] = useState(false);
   const [stayPctDisplay, setStayPctDisplay] = useState(0);
@@ -193,6 +197,8 @@ export function OnboardingFlow() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const deliveryAnim = useRef(new Animated.Value(0)).current;
+  const partnerBubbleAnim = useRef(new Animated.Value(0)).current;
+  const partnerKeyboardLiftAnim = useRef(new Animated.Value(0)).current;
   const scienceStayProgress = useRef(new Animated.Value(0)).current;
 
   const {
@@ -245,6 +251,47 @@ export function OnboardingFlow() {
     loop.start();
     return () => loop.stop();
   }, [deliveryAnim, slideIndex]);
+
+  useEffect(() => {
+    if (slideIndex === 5) return undefined;
+    setIsPartnerNameSubmitting(false);
+    setSubmittedPartnerName('');
+    partnerBubbleAnim.setValue(0);
+    partnerKeyboardLiftAnim.setValue(0);
+    return undefined;
+  }, [slideIndex, partnerBubbleAnim, partnerKeyboardLiftAnim]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (event) => {
+      const keyboardHeight = event?.endCoordinates?.height ?? 0;
+      const targetLift = -Math.min(Math.round(keyboardHeight * 0.42), 170);
+      Animated.timing(partnerKeyboardLiftAnim, {
+        toValue: targetLift,
+        duration: event?.duration ?? 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const onHide = (event) => {
+      Animated.timing(partnerKeyboardLiftAnim, {
+        toValue: 0,
+        duration: event?.duration ?? 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [partnerKeyboardLiftAnim]);
 
   useEffect(() => {
     if (slideIndex !== SCIENCE_SLIDE_INDEX) return undefined;
@@ -324,6 +371,43 @@ export function OnboardingFlow() {
     if (canAdvance && slideIndex < TOTAL_SLIDES - 1) goToSlide(slideIndex + 1);
   };
 
+  const handlePartnerNameContinue = (name, nextIndex) => {
+    const trimmedName = name.trim();
+    if (!trimmedName || isPartnerNameSubmitting) return;
+
+    setOnboardingData({
+      situation,
+      hardestPart,
+      bringsYouHere,
+      sendMomentsStyle,
+      checkInRhythm,
+      partnerName: trimmedName,
+    });
+    setSubmittedPartnerName(trimmedName);
+    setIsPartnerNameSubmitting(true);
+    partnerBubbleAnim.setValue(0);
+
+    Animated.sequence([
+      Animated.timing(partnerBubbleAnim, {
+        toValue: 0.22,
+        duration: 460,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(partnerBubbleAnim, {
+        toValue: 1,
+        duration: 4200,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (!finished) return;
+      setIsPartnerNameSubmitting(false);
+      setSubmittedPartnerName('');
+      goToSlide(nextIndex);
+    });
+  };
+
   const slideEntering = FadeIn.duration(180).withInitialValues({ opacity: 0, transform: [{ translateY: 10 }] });
   const slideExiting = FadeOut.duration(120);
 
@@ -397,43 +481,104 @@ export function OnboardingFlow() {
     }
     if (idx === 5) {
       const trimmedName = partnerName.trim();
+      const inputOpacity = partnerBubbleAnim.interpolate({
+        inputRange: [0, 0.15, 0.22, 1],
+        outputRange: [1, 0.75, 0, 0],
+      });
+      const inputScaleX = partnerBubbleAnim.interpolate({
+        inputRange: [0, 0.22, 1],
+        outputRange: [1, 0.54, 0.54],
+      });
+      const inputScaleY = partnerBubbleAnim.interpolate({
+        inputRange: [0, 0.22, 1],
+        outputRange: [1, 0.54, 0.54],
+      });
+      const bubbleTranslateY = partnerBubbleAnim.interpolate({
+        inputRange: [0, 0.22, 1],
+        outputRange: [0, -8, -340],
+      });
+      const bubbleOpacity = partnerBubbleAnim.interpolate({
+        inputRange: [0, 0.1, 0.22, 0.9, 1],
+        outputRange: [0, 0, 1, 1, 0],
+      });
+      const bubbleScale = partnerBubbleAnim.interpolate({
+        inputRange: [0, 0.22, 1],
+        outputRange: [0.72, 1, 1.1],
+      });
+      const bubbleGlowOpacity = partnerBubbleAnim.interpolate({
+        inputRange: [0, 0.22, 0.5, 1],
+        outputRange: [0, 0.85, 0.4, 0],
+      });
+      const sparkleOffset = partnerBubbleAnim.interpolate({
+        inputRange: [0.22, 1],
+        outputRange: [0, 26],
+      });
       return (
         <View style={[styles.slide, styles.questionSlide]}>
-          <Pressable onPress={() => goToSlide(idx - 1)} style={styles.backButton}>
+          <Pressable onPress={() => !isPartnerNameSubmitting && goToSlide(idx - 1)} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.questionTitle}>{"What's your partner's name?"}</Text>
           <Text style={styles.namePrompt}>{"We'll use this to personalize your Duva moments."}</Text>
-          <View style={styles.nameInputWrap}>
-            <TextInput
-              value={partnerName}
-              onChangeText={setPartnerName}
-              placeholder="Type their name"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="words"
-              autoCorrect={false}
-              returnKeyType="done"
-              style={styles.nameInput}
-            />
-          </View>
-          <TouchableOpacity
-            style={[styles.continueBtn, !(trimmedName.length > 0) && styles.primaryButtonDisabled]}
-            onPress={() => {
-              setOnboardingData({
-                situation,
-                hardestPart,
-                bringsYouHere,
-                sendMomentsStyle,
-                checkInRhythm,
-                partnerName: trimmedName,
-              });
-              goToSlide(idx + 1);
-            }}
-            disabled={trimmedName.length === 0}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryButtonText}>Continue</Text>
-          </TouchableOpacity>
+          <View style={styles.partnerBubbleArea} />
+          <Animated.View style={[styles.partnerInputActionsWrap, { transform: [{ translateY: partnerKeyboardLiftAnim }] }]}>
+            <Animated.View
+              style={[
+                styles.nameInputWrap,
+                {
+                  opacity: inputOpacity,
+                  transform: [{ scaleX: inputScaleX }, { scaleY: inputScaleY }],
+                },
+              ]}
+            >
+              {!isPartnerNameSubmitting && (
+                <TextInput
+                  value={partnerName}
+                  onChangeText={setPartnerName}
+                  placeholder="Type their name"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  style={styles.nameInput}
+                />
+              )}
+            </Animated.View>
+            {!isPartnerNameSubmitting && (
+              <TouchableOpacity
+                style={[styles.partnerContinueBtn, !(trimmedName.length > 0) && styles.primaryButtonDisabled]}
+                onPress={() => {
+                  handlePartnerNameContinue(trimmedName, idx + 1);
+                }}
+                disabled={trimmedName.length === 0}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.primaryButtonText}>Continue</Text>
+              </TouchableOpacity>
+            )}
+          </Animated.View>
+          {isPartnerNameSubmitting && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.partnerBubbleOverlay,
+                {
+                  opacity: bubbleOpacity,
+                  transform: [{ translateY: bubbleTranslateY }, { scale: bubbleScale }],
+                },
+              ]}
+            >
+              <Animated.View style={[styles.partnerBubbleGlow, { opacity: bubbleGlowOpacity }]} />
+              <Ionicons name="heart" size={164} color={colors.blushDark} />
+              <View style={styles.partnerBubbleTextWrap}>
+                <Text numberOfLines={2} style={styles.partnerBubbleText}>
+                  {submittedPartnerName}
+                </Text>
+              </View>
+              <Animated.View style={[styles.partnerSparkle, styles.partnerSparkleLeft, { transform: [{ translateY: sparkleOffset }] }]} />
+              <Animated.View style={[styles.partnerSparkle, styles.partnerSparkleRight, { transform: [{ translateY: sparkleOffset }] }]} />
+            </Animated.View>
+          )}
         </View>
       );
     }
@@ -939,13 +1084,88 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textMuted,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
     paddingHorizontal: 20,
+  },
+  partnerBubbleArea: {
+    height: 190,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: 10,
+  },
+  partnerBubbleWrap: {
+    width: 120,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.shadowStrong,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+  },
+  partnerBubbleText: {
+    maxWidth: 126,
+    textAlign: 'center',
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: '800',
+    lineHeight: 21,
+  },
+  partnerBubbleTextWrap: {
+    position: 'absolute',
+    width: 144,
+    height: 144,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  partnerBubbleOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 370,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 4,
+  },
+  partnerBubbleGlow: {
+    position: 'absolute',
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: colors.blush + '66',
+  },
+  partnerSparkle: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.blushDark,
+  },
+  partnerSparkleLeft: {
+    left: 110,
+    top: 18,
+  },
+  partnerSparkleRight: {
+    right: 112,
+    top: 48,
   },
   nameInputWrap: {
     width: '100%',
     paddingHorizontal: 8,
-    marginTop: 10,
+    marginTop: 30,
+  },
+  partnerInputActionsWrap: {
+    width: '100%',
+  },
+  partnerContinueBtn: {
+    marginTop: 18,
+    marginHorizontal: 28,
+    backgroundColor: colors.blushDark,
+    borderRadius: RADIUS,
+    paddingVertical: 18,
+    alignItems: 'center',
+    ...SHADOW,
   },
   nameInput: {
     width: '100%',
