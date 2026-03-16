@@ -44,16 +44,25 @@ export function ReunionCard({ reunion, saveReunion, endReunion, onSetWidgetPhoto
     setShowPicker(true);
   };
 
-  const handlePickerConfirm = (event, selectedDate) => {
-    if (Platform.OS === 'android') setShowPicker(false);
-    const isSet = event?.type === 'set' || event === 'set';
-    if (isSet) {
-      const date = selectedDate ?? pickerDate;
-      saveReunion(date, null);
+  const handlePickerChange = (event, selectedDate) => {
+    const eventType = event?.type ?? event;
+    if (Platform.OS === 'android') {
+      if (eventType === 'set') {
+        const date = selectedDate ?? pickerDate;
+        saveReunion(date, null);
+      }
       setShowPicker(false);
-    } else if (event?.type === 'dismiss') {
-      setShowPicker(false);
+      return;
     }
+
+    // iOS spinner emits onChange while scrolling; keep modal open and
+    // only persist when user taps the confirm button.
+    if (selectedDate) setPickerDate(selectedDate);
+  };
+
+  const handlePickerConfirmIOS = () => {
+    saveReunion(pickerDate, null);
+    setShowPicker(false);
   };
 
   const dayOfVisit =
@@ -85,8 +94,9 @@ export function ReunionCard({ reunion, saveReunion, endReunion, onSetWidgetPhoto
 
         {showPicker && (
           <Modal visible transparent animationType="slide">
-            <Pressable style={styles.modalOverlay} onPress={() => setShowPicker(false)}>
-              <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalOverlay}>
+              <Pressable style={styles.modalBackdrop} onPress={() => setShowPicker(false)} />
+              <View style={styles.modalContent}>
                 <View style={styles.modalHandle} />
                 <Text style={styles.modalTitle}>When do you reunite?</Text>
                 <DateTimePicker
@@ -94,19 +104,19 @@ export function ReunionCard({ reunion, saveReunion, endReunion, onSetWidgetPhoto
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   minimumDate={new Date()}
-                  onChange={handlePickerConfirm}
+                  onChange={handlePickerChange}
                   style={Platform.OS === 'ios' ? styles.iosPicker : undefined}
                 />
                 {Platform.OS === 'ios' && (
                   <Pressable
                     style={({ pressed }) => [styles.confirmButton, pressed && styles.buttonPressed]}
-                    onPress={() => handlePickerConfirm('set', pickerDate)}
+                    onPress={handlePickerConfirmIOS}
                   >
                     <Text style={styles.confirmButtonText}>Set date</Text>
                   </Pressable>
                 )}
               </View>
-            </Pressable>
+            </View>
           </Modal>
         )}
       </>
@@ -165,8 +175,9 @@ export function ReunionCard({ reunion, saveReunion, endReunion, onSetWidgetPhoto
 
       {showPicker && (
         <Modal visible transparent animationType="slide">
-          <Pressable style={styles.modalOverlay} onPress={() => setShowPicker(false)}>
-            <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View style={styles.modalOverlay}>
+            <Pressable style={styles.modalBackdrop} onPress={() => setShowPicker(false)} />
+            <View style={styles.modalContent}>
               <View style={styles.modalHandle} />
               <Text style={styles.modalTitle}>Change reunion date</Text>
               <DateTimePicker
@@ -174,19 +185,19 @@ export function ReunionCard({ reunion, saveReunion, endReunion, onSetWidgetPhoto
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 minimumDate={new Date()}
-                onChange={handlePickerConfirm}
+                onChange={handlePickerChange}
                 style={Platform.OS === 'ios' ? styles.iosPicker : undefined}
               />
               {Platform.OS === 'ios' && (
                 <Pressable
                   style={({ pressed }) => [styles.confirmButton, pressed && styles.buttonPressed]}
-                  onPress={() => handlePickerConfirm('set', pickerDate)}
+                  onPress={handlePickerConfirmIOS}
                 >
                   <Text style={styles.confirmButtonText}>Update</Text>
                 </Pressable>
               )}
             </View>
-          </Pressable>
+          </View>
         </Modal>
       )}
     </>
@@ -311,8 +322,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
+    flexDirection: 'column',
+  },
+  modalBackdrop: {
+    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: colors.background,
