@@ -30,7 +30,23 @@ try {
 }
 
 /** Download a remote URL into the App Group as current_widget_photo.jpg. */
-async function downloadToAppGroup(url) {
+async function writeCaptionToAppGroup(caption) {
+  const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
+  if (!sharedPath) return;
+  const captionUri = 'file://' + sharedPath + '/current_widget_photo_caption.txt';
+  const normalizedCaption = typeof caption === 'string' ? caption.trim().slice(0, 120) : '';
+  if (normalizedCaption) {
+    await FileSystem.writeAsStringAsync(captionUri, normalizedCaption);
+    return;
+  }
+  try {
+    const info = await FileSystem.getInfoAsync(captionUri, { size: false });
+    if (info.exists) await FileSystem.deleteAsync(captionUri, { idempotent: true });
+  } catch (_) {}
+}
+
+/** Download a remote URL into the App Group as current_widget_photo.jpg. */
+async function downloadToAppGroup(url, caption = '') {
   const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
   if (!sharedPath) return false;
   const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
@@ -42,6 +58,7 @@ async function downloadToAppGroup(url) {
     if (existing.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
   } catch (_) {}
   await FileSystem.copyAsync({ from: cacheUri, to: destUri });
+  await writeCaptionToAppGroup(caption);
   return true;
 }
 
@@ -59,7 +76,7 @@ async function runWidgetUpdate() {
         : null;
     const activePhotoUrl = latestPhoto?.thumbnailUrl || latestPhoto?.url;
     if (activePhotoUrl) {
-      await downloadToAppGroup(activePhotoUrl);
+      await downloadToAppGroup(activePhotoUrl, latestPhoto?.caption ?? '');
     }
     reloadWidget();
   } catch (e) {
@@ -93,12 +110,32 @@ function getPhotoUrlFromTaskPayload(data) {
   return undefined;
 }
 
+function getCaptionFromTaskPayload(data) {
+  if (!data) return '';
+  const d = data?.data;
+  if (d && typeof d.caption === 'string') return d.caption;
+  if (d && typeof d.dataString === 'string') {
+    try {
+      const parsed = JSON.parse(d.dataString);
+      return parsed?.caption ?? parsed?.data?.caption ?? '';
+    } catch { return ''; }
+  }
+  if (typeof data?.notification?.data?.caption === 'string') return data.notification.data.caption;
+  const body = data?.body ?? data?.payload;
+  if (typeof body?.caption === 'string') return body.caption;
+  if (typeof body?.data?.caption === 'string') return body.data.caption;
+  if (typeof data?.caption === 'string') return data.caption;
+  if (typeof data?.data?.caption === 'string') return data.data.caption;
+  return '';
+}
+
 async function runBackgroundNotificationTask({ data, error: taskError }) {
   if (taskError) {
     console.warn('[Duva BG] task error:', String(taskError));
     return Result.Failed;
   }
   const photoUrl = getPhotoUrlFromTaskPayload(data);
+  const caption = getCaptionFromTaskPayload(data);
   console.warn('[Duva BG] payload keys:', data ? Object.keys(data).join(',') : 'null', '| photoUrl:', photoUrl ? 'ok' : 'MISSING');
   if (photoUrl === undefined) return Result.NoData;
   try {
@@ -114,8 +151,9 @@ async function runBackgroundNotificationTask({ data, error: taskError }) {
         const info = await FileSystem.getInfoAsync(destUri, { size: false });
         if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
       } catch (_) {}
+      await writeCaptionToAppGroup('');
     } else {
-      const ok = await downloadToAppGroup(urlStr);
+      const ok = await downloadToAppGroup(urlStr, caption);
       if (!ok) console.warn('[Duva BG] download failed');
     }
     reloadWidget();
@@ -127,15 +165,18 @@ async function runBackgroundNotificationTask({ data, error: taskError }) {
 
 TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, runBackgroundNotificationTask);
 
-/** Extract photoUrl from notification data (used when app is running). */
-function getPhotoUrlFromNotification(notification) {
+/** Extract widget payload from notification data (used when app is running). */
+function getWidgetPayloadFromNotification(notification) {
   const d = notification?.request?.content?.data;
-  if (!d) return null;
-  return d.photoUrl ?? null;
+  if (!d) return { photoUrl: null, caption: '' };
+  return {
+    photoUrl: d.photoUrl ?? null,
+    caption: typeof d.caption === 'string' ? d.caption : '',
+  };
 }
 
 /** Update widget using photoUrl from push payload. No API call - works in background. */
-async function updateWidgetFromPhotoUrl(photoUrl) {
+async function updateWidgetFromPhotoUrl(photoUrl, caption = '') {
   try {
     const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
     if (!sharedPath) return;
@@ -145,8 +186,9 @@ async function updateWidgetFromPhotoUrl(photoUrl) {
         const info = await FileSystem.getInfoAsync(destUri, { size: false });
         if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
       } catch (_) {}
+      await writeCaptionToAppGroup('');
     } else {
-      await downloadToAppGroup(photoUrl);
+      await downloadToAppGroup(photoUrl, caption);
     }
     reloadWidget();
   } catch (e) {
@@ -163,10 +205,10 @@ async function updateWidgetFromPhotoUrl(photoUrl) {
 export function registerBackgroundWidgetTask() {
   Notifications.addNotificationReceivedListener((notification) => {
     const dataType = notification?.request?.content?.data?.type;
-    const photoUrl = getPhotoUrlFromNotification(notification);
+    const { photoUrl, caption } = getWidgetPayloadFromNotification(notification);
     if (dataType === 'new_photo' || dataType === 'widget_update') {
       if (photoUrl !== null && photoUrl !== undefined) {
-        updateWidgetFromPhotoUrl(photoUrl);
+        updateWidgetFromPhotoUrl(photoUrl, caption);
       } else {
         TaskManager.runTaskAsync(TASK_NAME, {}).catch(() => {});
       }
@@ -176,7 +218,7 @@ export function registerBackgroundWidgetTask() {
         (!notification?.request?.content?.title &&
           !notification?.request?.content?.body);
       if (isSilent && photoUrl != null) {
-        updateWidgetFromPhotoUrl(photoUrl);
+        updateWidgetFromPhotoUrl(photoUrl, caption);
       } else if (isSilent) {
         TaskManager.runTaskAsync(TASK_NAME, {}).catch(() => {});
       }

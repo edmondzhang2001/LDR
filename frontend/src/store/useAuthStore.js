@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood, updatePushToken, unlinkPartner as apiUnlinkPartner, getTodaysPhotos, deletePhoto as apiDeletePhoto } from '../lib/api';
 import { registerForPushNotificationsAsync } from '../lib/pushNotifications';
 let getAppGroupDirectory = () => null;
@@ -93,8 +94,9 @@ async function writeWidgetData(partner, reunion) {
         : null;
     const location =
       partner?.meetingLocation ?? partner?.location?.city ?? null;
-    const partnerName = partner?.name ?? null;
-    const calendarPayload = { daysRemaining, location, partnerName };
+    const partnerFirstName =
+      partner?.firstName ?? partner?.name?.trim().split(/\s+/)[0] ?? null;
+    const calendarPayload = { daysRemaining, location, partnerFirstName };
     await FileSystem.writeAsStringAsync(
       `${baseUri}/calendar.json`,
       JSON.stringify(calendarPayload)
@@ -113,7 +115,7 @@ const APP_GROUP_ID = 'group.com.edmond.duva';
  * the native widget extension can read it. Uses a two-step approach because
  * downloadAsync can silently fail when targeting App Group paths directly.
  */
-export async function syncWidgetPhoto(photoUrl) {
+export async function syncWidgetPhoto(photoUrl, caption = '') {
   try {
     const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
     if (!sharedPath) {
@@ -121,11 +123,16 @@ export async function syncWidgetPhoto(photoUrl) {
       return;
     }
     const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+    const captionUri = 'file://' + sharedPath + '/current_widget_photo_caption.txt';
 
     if (!photoUrl) {
       try {
         const info = await FileSystem.getInfoAsync(destUri, { size: false });
         if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
+      } catch (_) {}
+      try {
+        const captionInfo = await FileSystem.getInfoAsync(captionUri, { size: false });
+        if (captionInfo.exists) await FileSystem.deleteAsync(captionUri, { idempotent: true });
       } catch (_) {}
       reloadWidget();
       return;
@@ -151,6 +158,16 @@ export async function syncWidgetPhoto(photoUrl) {
     if (!verify.exists) {
       console.error('[syncWidgetPhoto] file not found after copy — App Group write failed');
       return;
+    }
+
+    const normalizedCaption = typeof caption === 'string' ? caption.trim().slice(0, 120) : '';
+    if (normalizedCaption) {
+      await FileSystem.writeAsStringAsync(captionUri, normalizedCaption);
+    } else {
+      try {
+        const captionInfo = await FileSystem.getInfoAsync(captionUri, { size: false });
+        if (captionInfo.exists) await FileSystem.deleteAsync(captionUri, { idempotent: true });
+      } catch (_) {}
     }
 
     reloadWidget();
@@ -182,7 +199,15 @@ export async function syncCalendarWidgetPhoto(localUri) {
       return true;
     }
 
-    const base64 = await FileSystem.readAsStringAsync(localUri, {
+    // Downscale for WidgetKit archival limits before writing to App Group.
+    // Keep area safely below the ~1.07M px threshold that causes archival failures.
+    const processed = await manipulateAsync(
+      localUri,
+      [{ resize: { width: 1000, height: 1000 } }],
+      { format: SaveFormat.JPEG, compress: 0.82 }
+    );
+    const sourceUri = processed?.uri || localUri;
+    const base64 = await FileSystem.readAsStringAsync(sourceUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
     try {
@@ -484,7 +509,7 @@ export const useAuthStore = create((set, get) => {
         }
         await writeWidgetData(partner, partner?.reunion ?? null);
         const activePhotoUrl = latestPhoto?.thumbnailUrl || latestPhoto?.url;
-        await syncWidgetPhoto(activePhotoUrl);
+        await syncWidgetPhoto(activePhotoUrl, latestPhoto?.caption ?? '');
         return partner;
       } catch {
         return null;

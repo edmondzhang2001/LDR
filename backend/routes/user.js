@@ -179,7 +179,11 @@ router.post('/photo', requireAuth, async (req, res) => {
           const messages = [
             {
               to: pushToken,
-              data: { photoUrl: finalPhotoUrl, type: 'new_photo' },
+              data: {
+                photoUrl: finalPhotoUrl,
+                caption: captionStr,
+                type: 'new_photo',
+              },
               _contentAvailable: true,
             },
           ];
