@@ -168,7 +168,7 @@ router.post('/photo', requireAuth, async (req, res) => {
     }
     await req.user.save();
 
-    // Notify partner so widget can update in background (Locket-style)
+    // Notify partner so widget can update in background (Locket-style) and show visible notification
     const finalPhotoUrl = thumbnailUrl || photoUrl;
     const partnerId = req.user.partnerId;
     if (finalPhotoUrl && partnerId && Expo.isExpoPushToken) {
@@ -176,9 +176,13 @@ router.post('/photo', requireAuth, async (req, res) => {
         const partner = await User.findById(partnerId).select('pushToken').lean();
         const pushToken = partner?.pushToken;
         if (pushToken && Expo.isExpoPushToken(pushToken)) {
+          const senderName = getUserNameFields(req.user).firstName || 'Your partner';
           const messages = [
             {
               to: pushToken,
+              title: `${senderName} sent a picture`,
+              body: captionStr || 'Tap to view',
+              sound: 'default',
               data: {
                 photoUrl: finalPhotoUrl,
                 caption: captionStr,
@@ -266,7 +270,7 @@ router.put('/settings', requireAuth, async (req, res) => {
   }
 });
 
-/** PUT /api/user/mood — update current user mood (emoji + optional text). */
+/** PUT /api/user/mood — update current user mood (emoji + optional text). Notifies partner via push. */
 router.put('/mood', requireAuth, async (req, res) => {
   try {
     const { emoji, text } = req.body;
@@ -274,6 +278,34 @@ router.put('/mood', requireAuth, async (req, res) => {
     req.user.mood.emoji = typeof emoji === 'string' && emoji.trim() ? emoji.trim() : null;
     req.user.mood.text = typeof text === 'string' && text.trim() ? text.trim().slice(0, 15) : null;
     await req.user.save();
+
+    // Notify partner that mood was updated
+    const partnerId = req.user.partnerId;
+    if (partnerId && Expo.isExpoPushToken) {
+      try {
+        const partner = await User.findById(partnerId).select('pushToken').lean();
+        const pushToken = partner?.pushToken;
+        if (pushToken && Expo.isExpoPushToken(pushToken)) {
+          const senderName = getUserNameFields(req.user).firstName || 'Your partner';
+          const moodEmoji = req.user.mood?.emoji || '';
+          const moodText = req.user.mood?.text || '';
+          const body = [moodEmoji, moodText].filter(Boolean).join(' ') || 'Tap to see';
+          const messages = [
+            {
+              to: pushToken,
+              title: `${senderName} updated their mood`,
+              body,
+              sound: 'default',
+              data: { type: 'mood_update' },
+            },
+          ];
+          await expoPush.sendPushNotificationsAsync(messages);
+        }
+      } catch (pushErr) {
+        console.error('[mood push]', pushErr?.message || pushErr);
+      }
+    }
+
     res.json({
       mood: {
         emoji: req.user.mood.emoji || undefined,
