@@ -8,6 +8,7 @@ import {
   Pressable,
   TouchableOpacity,
   Image,
+  TextInput,
   Animated,
 } from 'react-native';
 import AnimatedReanimated, {
@@ -86,9 +87,39 @@ const QUESTION_3 = {
   heading: "What brings you here today?",
   options: ['Feeling closer to my partner', 'Sending fun surprises', 'Having a shared space', 'Just exploring'],
 };
+const QUESTION_4 = {
+  heading: 'How do you want to share moments?',
+  options: ['Quick selfies', 'Daily life snapshots', 'Special occasion photos', 'A mix of everything'],
+};
+const QUESTION_5 = {
+  heading: "What check-in rhythm feels right?",
+  options: ['A few times a day', 'Once a day', 'Every couple of days', 'Whenever life allows'],
+};
 
-const FEATURE_TITLES = ['YOUR FIRST IMPRESSIONS.', 'BRIDGE THE DISTANCE.', 'OUR MAGIC.', 'ONE SUBSCRIPTION. BOTH OF YOU.'];
-const TOTAL_SLIDES = 7;
+const FEATURE_TITLES = [
+  'SNAP, SEND, SMILE.',
+  'YOUR FIRST IMPRESSIONS.',
+  'BRIDGE THE DISTANCE.',
+  'OUR MAGIC.',
+  'ONE SUBSCRIPTION. BOTH OF YOU.',
+];
+const TOTAL_SLIDES = 12;
+const QUESTION_SLIDES_COUNT = 6;
+const PHOTO_DELIVERY_SLIDE_INDEX = 6;
+const SCIENCE_SLIDE_INDEX = 7;
+const FEATURE_SLIDES_START = 8;
+const FEATURE_SLIDES_END = 10;
+const FINAL_SLIDE_INDEX = TOTAL_SLIDES - 1;
+const SCIENCE_ANIMATION = {
+  titleDelay: 0,
+  sentence1Delay: 2200,
+  sentence2Delay: 8000,
+  graphRevealDelay: 12000,
+  graphFillDelay: 12400,
+  stayBarDuration: 3600,
+  insightRevealDelay: 16200,
+  buttonDelay: 19500,
+};
 
 const SEGMENT_FILL_DURATION = 280;
 
@@ -155,12 +186,30 @@ export function OnboardingFlow() {
   const router = useRouter();
   const [phase, setPhase] = useState('intro');
   const [slideIndex, setSlideIndex] = useState(0);
+  const [scienceButtonEnabled, setScienceButtonEnabled] = useState(false);
+  const [scienceInsightVisible, setScienceInsightVisible] = useState(false);
+  const [stayPctDisplay, setStayPctDisplay] = useState(0);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
+  const deliveryAnim = useRef(new Animated.Value(0)).current;
+  const scienceStayProgress = useRef(new Animated.Value(0)).current;
 
-  const { situation, hardestPart, bringsYouHere, toggleSituation, toggleHardestPart, toggleBringsYouHere, setOnboardingData } =
-    useOnboardingStore();
+  const {
+    situation,
+    hardestPart,
+    bringsYouHere,
+    sendMomentsStyle,
+    checkInRhythm,
+    partnerName,
+    toggleSituation,
+    toggleHardestPart,
+    toggleBringsYouHere,
+    toggleSendMomentsStyle,
+    toggleCheckInRhythm,
+    setPartnerName,
+    setOnboardingData,
+  } = useOnboardingStore();
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -184,9 +233,61 @@ export function OnboardingFlow() {
     return () => float.stop();
   }, [floatAnim]);
 
+  useEffect(() => {
+    if (slideIndex !== PHOTO_DELIVERY_SLIDE_INDEX) return undefined;
+    deliveryAnim.setValue(0);
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(deliveryAnim, { toValue: 1, duration: 2200, useNativeDriver: true }),
+        Animated.delay(300),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [deliveryAnim, slideIndex]);
+
+  useEffect(() => {
+    if (slideIndex !== SCIENCE_SLIDE_INDEX) return undefined;
+    setScienceButtonEnabled(false);
+    setScienceInsightVisible(false);
+    setStayPctDisplay(0);
+    scienceStayProgress.setValue(0);
+
+    let stayCountInterval;
+    const startCounter = (target, duration, setter) => {
+      const start = Date.now();
+      return setInterval(() => {
+        const elapsed = Date.now() - start;
+        const progress = Math.min(elapsed / duration, 1);
+        setter(Math.round(progress * target));
+      }, 50);
+    };
+
+    const stayAnimTimer = setTimeout(() => {
+      const stayAnim = Animated.timing(scienceStayProgress, {
+        toValue: 1,
+        duration: SCIENCE_ANIMATION.stayBarDuration,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      });
+      stayAnim.start();
+      stayCountInterval = startCounter(86, SCIENCE_ANIMATION.stayBarDuration, setStayPctDisplay);
+    }, SCIENCE_ANIMATION.graphFillDelay);
+
+    const insightTimer = setTimeout(() => setScienceInsightVisible(true), SCIENCE_ANIMATION.insightRevealDelay);
+    const lockTimer = setTimeout(() => setScienceButtonEnabled(true), SCIENCE_ANIMATION.buttonDelay);
+    return () => {
+      clearTimeout(stayAnimTimer);
+      clearTimeout(insightTimer);
+      clearTimeout(lockTimer);
+      clearInterval(stayCountInterval);
+      scienceStayProgress.stopAnimation();
+    };
+  }, [slideIndex, scienceStayProgress]);
+
   const handleGetStarted = () => setPhase('slides');
   const handleCreateAccount = () => router.replace('/auth');
-  const showCTAs = phase === 'slides' && slideIndex === 6;
+  const showCTAs = phase === 'slides' && slideIndex === FINAL_SLIDE_INDEX;
 
   const goToSlide = (index) => {
     const i = Math.max(0, Math.min(TOTAL_SLIDES - 1, index));
@@ -200,14 +301,26 @@ export function OnboardingFlow() {
 
   /** Right-tap advance: allowed unless we're on a question slide with no selection. */
   const canAdvance =
-    slideIndex <= 2
+    slideIndex < QUESTION_SLIDES_COUNT
       ? (slideIndex === 0 && situation.length > 0) ||
         (slideIndex === 1 && hardestPart.length > 0) ||
-        (slideIndex === 2 && bringsYouHere.length > 0)
+        (slideIndex === 2 && bringsYouHere.length > 0) ||
+        (slideIndex === 3 && sendMomentsStyle.length > 0) ||
+        (slideIndex === 4 && checkInRhythm.length > 0) ||
+        (slideIndex === 5 && partnerName.trim().length > 0)
       : slideIndex < TOTAL_SLIDES - 1;
 
   const handleSlideNext = () => {
-    if (slideIndex === 2) setOnboardingData({ situation, hardestPart, bringsYouHere });
+    if (slideIndex === QUESTION_SLIDES_COUNT - 1) {
+      setOnboardingData({
+        situation,
+        hardestPart,
+        bringsYouHere,
+        sendMomentsStyle,
+        checkInRhythm,
+        partnerName: partnerName.trim(),
+      });
+    }
     if (canAdvance && slideIndex < TOTAL_SLIDES - 1) goToSlide(slideIndex + 1);
   };
 
@@ -216,10 +329,28 @@ export function OnboardingFlow() {
 
   /** Returns the slide content for the given index (for tap-through state-driven render). */
   function renderSlideContent(idx) {
-    if (idx <= 2) {
-      const q = [QUESTION_1, QUESTION_2, QUESTION_3][idx];
-      const sel = idx === 0 ? situation : idx === 1 ? hardestPart : bringsYouHere;
-      const tog = idx === 0 ? toggleSituation : idx === 1 ? toggleHardestPart : toggleBringsYouHere;
+    if (idx <= 4) {
+      const q = [QUESTION_1, QUESTION_2, QUESTION_3, QUESTION_4, QUESTION_5][idx];
+      const sel =
+        idx === 0
+          ? situation
+          : idx === 1
+            ? hardestPart
+            : idx === 2
+              ? bringsYouHere
+              : idx === 3
+                ? sendMomentsStyle
+                : checkInRhythm;
+      const tog =
+        idx === 0
+          ? toggleSituation
+          : idx === 1
+            ? toggleHardestPart
+            : idx === 2
+              ? toggleBringsYouHere
+              : idx === 3
+                ? toggleSendMomentsStyle
+                : toggleCheckInRhythm;
       return (
         <View style={[styles.slide, styles.questionSlide]}>
           <Pressable onPress={() => (idx === 0 ? setPhase('intro') : goToSlide(idx - 1))} style={styles.backButton}>
@@ -244,7 +375,16 @@ export function OnboardingFlow() {
           <TouchableOpacity
             style={[styles.continueBtn, !(sel.length > 0) && styles.primaryButtonDisabled]}
             onPress={() => {
-              if (idx === 2) setOnboardingData({ situation, hardestPart, bringsYouHere });
+              if (idx === QUESTION_SLIDES_COUNT - 1) {
+                setOnboardingData({
+                  situation,
+                  hardestPart,
+                  bringsYouHere,
+                  sendMomentsStyle,
+                  checkInRhythm,
+                  partnerName: partnerName.trim(),
+                });
+              }
               goToSlide(idx + 1);
             }}
             disabled={sel.length === 0}
@@ -255,7 +395,164 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    if (idx === 3) {
+    if (idx === 5) {
+      const trimmedName = partnerName.trim();
+      return (
+        <View style={[styles.slide, styles.questionSlide]}>
+          <Pressable onPress={() => goToSlide(idx - 1)} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </Pressable>
+          <Text style={styles.questionTitle}>{"What's your partner's name?"}</Text>
+          <Text style={styles.namePrompt}>{"We'll use this to personalize your Duva moments."}</Text>
+          <View style={styles.nameInputWrap}>
+            <TextInput
+              value={partnerName}
+              onChangeText={setPartnerName}
+              placeholder="Type their name"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="done"
+              style={styles.nameInput}
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.continueBtn, !(trimmedName.length > 0) && styles.primaryButtonDisabled]}
+            onPress={() => {
+              setOnboardingData({
+                situation,
+                hardestPart,
+                bringsYouHere,
+                sendMomentsStyle,
+                checkInRhythm,
+                partnerName: trimmedName,
+              });
+              goToSlide(idx + 1);
+            }}
+            disabled={trimmedName.length === 0}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryButtonText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    if (idx === 6) {
+      const cameraScale = deliveryAnim.interpolate({
+        inputRange: [0, 0.18, 0.34, 1],
+        outputRange: [1, 1.1, 1, 1],
+      });
+      const flashOpacity = deliveryAnim.interpolate({
+        inputRange: [0, 0.14, 0.22, 1],
+        outputRange: [0, 0.9, 0, 0],
+      });
+      const photoOpacity = deliveryAnim.interpolate({
+        inputRange: [0, 0.26, 0.42, 1],
+        outputRange: [0, 0, 1, 1],
+      });
+      const doveTranslateX = deliveryAnim.interpolate({
+        inputRange: [0.38, 1],
+        outputRange: [-10, 170],
+      });
+      const doveTranslateY = deliveryAnim.interpolate({
+        inputRange: [0.38, 1],
+        outputRange: [10, -90],
+      });
+      return (
+        <View style={styles.slide}>
+          <View style={styles.deliveryStage}>
+            <Animated.View style={[styles.cameraBubble, { transform: [{ scale: cameraScale }] }]}>
+              <Ionicons name="camera" size={34} color={colors.blushDark} />
+            </Animated.View>
+            <Animated.View style={[styles.cameraFlash, { opacity: flashOpacity }]} />
+            <Animated.View style={[styles.photoCardAnimated, { opacity: photoOpacity }]}>
+              <Ionicons name="image" size={30} color={colors.skyDark} />
+            </Animated.View>
+            <Animated.View
+              style={[
+                styles.doveDelivery,
+                {
+                  transform: [{ translateX: doveTranslateX }, { translateY: doveTranslateY }],
+                },
+              ]}
+            >
+              <Ionicons name="paper-plane" size={28} color={colors.blushDark} />
+            </Animated.View>
+          </View>
+          <Text style={styles.slideTitle}>{FEATURE_TITLES[0]}</Text>
+          <Text style={styles.slideSubtitle}>Snap a photo, then watch our little dove whisk it away to your partner.</Text>
+        </View>
+      );
+    }
+    if (idx === 7) {
+      const stayWidth = scienceStayProgress.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0%', '86%'],
+      });
+      return (
+        <View style={[styles.slide, styles.scienceSlide]}>
+          <AnimatedReanimated.View
+            entering={FadeIn.delay(SCIENCE_ANIMATION.titleDelay).duration(200).withInitialValues({ opacity: 0, transform: [{ translateY: 10 }] })}
+            style={styles.scienceHeaderBlock}
+          >
+            <Text style={styles.scienceHeadline}>The Science of Staying Together</Text>
+          </AnimatedReanimated.View>
+
+          <AnimatedReanimated.View
+            entering={FadeIn.delay(SCIENCE_ANIMATION.sentence1Delay).duration(200)}
+            style={styles.scienceSubtitleBlock}
+          >
+            <Text style={styles.scienceSubtitleText}>
+              Small daily check-ins are called "bids for connection."
+            </Text>
+          </AnimatedReanimated.View>
+
+          <AnimatedReanimated.View
+            entering={FadeIn.delay(SCIENCE_ANIMATION.sentence2Delay).duration(200)}
+            style={styles.scienceSubtitleBlock}
+          >
+            <Text style={styles.scienceSubtitleText}>
+              One photo a day can keep your shared world alive.
+            </Text>
+          </AnimatedReanimated.View>
+
+          <AnimatedReanimated.View
+            entering={FadeIn.delay(SCIENCE_ANIMATION.graphRevealDelay).duration(650).withInitialValues({ opacity: 0, transform: [{ translateY: 14 }] })}
+            style={[styles.scienceInfographic, styles.scienceInfographicBottom]}
+          >
+            <View style={styles.scienceRow}>
+              <Text style={styles.sciencePct}>{stayPctDisplay}%</Text>
+              <View style={styles.scienceTrack}>
+                <Animated.View style={[styles.scienceFill, styles.scienceFillStay, { width: stayWidth }]} />
+              </View>
+            </View>
+          </AnimatedReanimated.View>
+
+          {scienceInsightVisible && (
+            <AnimatedReanimated.View entering={FadeIn.duration(500)} style={styles.scienceInsightWrap}>
+              <Text style={styles.scienceInsightText}>
+                86% of long term happy couples report sharing atleast one bid for connection a day
+              </Text>
+            </AnimatedReanimated.View>
+          )}
+
+          <AnimatedReanimated.View
+            entering={FadeIn.delay(SCIENCE_ANIMATION.buttonDelay).duration(500)}
+            style={styles.scienceCtaWrap}
+          >
+            <TouchableOpacity
+              style={[styles.primaryButton, !scienceButtonEnabled && styles.primaryButtonDisabled]}
+              onPress={() => goToSlide(idx + 1)}
+              disabled={!scienceButtonEnabled}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryButtonText}>Make every day count</Text>
+            </TouchableOpacity>
+          </AnimatedReanimated.View>
+        </View>
+      );
+    }
+    if (idx === 8) {
       return (
         <View style={styles.slide}>
           <View style={styles.slide1Content}>
@@ -305,12 +602,12 @@ export function OnboardingFlow() {
               </View>
             </View>
           </View>
-          <Text style={styles.slideTitle}>{FEATURE_TITLES[0]}</Text>
+          <Text style={styles.slideTitle}>{FEATURE_TITLES[1]}</Text>
           <Text style={styles.slideSubtitle}>Send puffy postcards and little moments. Watch them fly to your person.</Text>
         </View>
       );
     }
-    if (idx === 4) {
+    if (idx === 9) {
       return (
         <View style={styles.slide}>
           <View style={styles.slide2Content}>
@@ -335,12 +632,12 @@ export function OnboardingFlow() {
               </View>
             </View>
           </View>
-          <Text style={styles.slideTitle}>{FEATURE_TITLES[1]}</Text>
+          <Text style={styles.slideTitle}>{FEATURE_TITLES[2]}</Text>
           <Text style={styles.slideSubtitle}>See where they are, what it's like there, and count down until you're together.</Text>
         </View>
       );
     }
-    if (idx === 5) {
+    if (idx === 10) {
       return (
         <View style={styles.slide}>
           <View style={styles.slide3Dashboard}>
@@ -359,7 +656,7 @@ export function OnboardingFlow() {
               </View>
             </View>
           </View>
-          <Text style={styles.slideTitle}>{FEATURE_TITLES[2]}</Text>
+          <Text style={styles.slideTitle}>{FEATURE_TITLES[3]}</Text>
           <Text style={styles.slideSubtitle}>One cozy home screen. Their time, weather, and battery—always in reach.</Text>
           <View style={styles.slide3WidgetsAboveCTA}>
             <View style={styles.miniWidgetRow}>
@@ -376,7 +673,7 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    // idx === 6
+    // idx === 11
     return (
       <View style={styles.slide}>
         <View style={styles.slideCoupleSubscription}>
@@ -401,7 +698,7 @@ export function OnboardingFlow() {
             </View>
           </View>
         </View>
-        <Text style={styles.slideTitle}>{FEATURE_TITLES[3]}</Text>
+        <Text style={styles.slideTitle}>{FEATURE_TITLES[4]}</Text>
         <Text style={styles.slideSubtitle}>
           Only one of you needs to subscribe. When either partner pays, you both get full access—no extra charge.
         </Text>
@@ -436,7 +733,7 @@ export function OnboardingFlow() {
     );
   }
 
-  // —— 6 slides: 3 questionnaire + 3 features ——
+  // Extended onboarding: questionnaire + animation + features.
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
@@ -457,8 +754,9 @@ export function OnboardingFlow() {
             {renderSlideContent(slideIndex)}
           </AnimatedReanimated.View>
         </View>
-        {/* Tap-through overlay only on feature slides 3–5; survey (0–2) and last slide (6) use buttons */}
-        {slideIndex >= 3 && slideIndex < 6 && (
+        {/* Tap-through overlay on photo animation + feature slides; stats/final are button-driven */}
+        {(slideIndex === PHOTO_DELIVERY_SLIDE_INDEX ||
+          (slideIndex >= FEATURE_SLIDES_START && slideIndex <= FEATURE_SLIDES_END)) && (
           <View style={styles.tapOverlay}>
             <Pressable style={styles.tapZoneLeft} onPress={handleSlideBack} />
             <Pressable style={styles.tapZoneRight} onPress={handleSlideNext} />
@@ -637,6 +935,31 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     paddingHorizontal: 16,
   },
+  namePrompt: {
+    fontSize: 16,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  nameInputWrap: {
+    width: '100%',
+    paddingHorizontal: 8,
+    marginTop: 10,
+  },
+  nameInput: {
+    width: '100%',
+    backgroundColor: colors.surface + 'F0',
+    borderRadius: RADIUS,
+    borderWidth: 2,
+    borderColor: colors.blush + '99',
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    fontSize: 18,
+    color: colors.text,
+    fontWeight: '600',
+    ...SHADOW,
+  },
   pillScroll: {
     flex: 1,
     width: '100%',
@@ -694,9 +1017,149 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 8,
   },
+  scienceSlide: {
+    backgroundColor: '#FFF8F1',
+    alignItems: 'stretch',
+    paddingTop: 8,
+  },
+  scienceHeaderBlock: {
+    marginTop: 8,
+    marginBottom: 22,
+  },
+  scienceHeadline: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: colors.text,
+    lineHeight: 40,
+    textAlign: 'center',
+  },
+  scienceInfographic: {
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.blush + '77',
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    marginBottom: 22,
+    ...SHADOW,
+  },
+  scienceInfographicBottom: {
+    marginTop: 6,
+    marginBottom: 14,
+  },
+  scienceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sciencePct: {
+    width: 92,
+    fontSize: 36,
+    lineHeight: 40,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  scienceTrack: {
+    flex: 1,
+    height: 22,
+    borderRadius: 14,
+    backgroundColor: '#E6E3E1',
+    overflow: 'hidden',
+  },
+  scienceFill: {
+    height: '100%',
+    borderRadius: 14,
+  },
+  scienceFillStay: {
+    backgroundColor: colors.blushDark,
+  },
+  scienceLabelProminent: {
+    fontSize: 17,
+    color: colors.textMuted,
+    fontWeight: '700',
+    marginTop: 10,
+    marginBottom: 0,
+    textAlign: 'center',
+  },
+  scienceInsightWrap: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  scienceInsightText: {
+    fontSize: 18,
+    lineHeight: 26,
+    color: colors.text,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  scienceSubtitleBlock: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  scienceSubtitleText: {
+    fontSize: 22,
+    lineHeight: 30,
+    color: colors.text,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  scienceCtaWrap: {
+    marginTop: 'auto',
+    paddingBottom: 12,
+  },
   slide1Content: {
     alignItems: 'center',
     marginTop: 10,
+  },
+  deliveryStage: {
+    width: '100%',
+    height: 240,
+    marginTop: 24,
+    marginBottom: 8,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraBubble: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOW,
+  },
+  cameraFlash: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: colors.white,
+  },
+  photoCardAnimated: {
+    position: 'absolute',
+    left: 48,
+    top: 120,
+    width: 72,
+    height: 72,
+    borderRadius: 16,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOW,
+  },
+  doveDelivery: {
+    position: 'absolute',
+    left: 80,
+    top: 130,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.blush + '66',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOW,
   },
   collageContainer: {
     width: '100%',

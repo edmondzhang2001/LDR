@@ -9,10 +9,18 @@ export const useOnboardingStore = create((set) => ({
   situation: [],
   hardestPart: [],
   bringsYouHere: [],
+  sendMomentsStyle: [],
+  checkInRhythm: [],
+  partnerName: '',
 
   setSituation: (situation) => set({ situation: Array.isArray(situation) ? situation : [] }),
   setHardestPart: (hardestPart) => set({ hardestPart: Array.isArray(hardestPart) ? hardestPart : [] }),
   setBringsYouHere: (bringsYouHere) => set({ bringsYouHere: Array.isArray(bringsYouHere) ? bringsYouHere : [] }),
+  setSendMomentsStyle: (sendMomentsStyle) =>
+    set({ sendMomentsStyle: Array.isArray(sendMomentsStyle) ? sendMomentsStyle : [] }),
+  setCheckInRhythm: (checkInRhythm) =>
+    set({ checkInRhythm: Array.isArray(checkInRhythm) ? checkInRhythm : [] }),
+  setPartnerName: (partnerName) => set({ partnerName: typeof partnerName === 'string' ? partnerName : '' }),
 
   toggleSituation: (option) =>
     set((state) => ({
@@ -32,6 +40,18 @@ export const useOnboardingStore = create((set) => ({
         ? state.bringsYouHere.filter((b) => b !== option)
         : [...state.bringsYouHere, option],
     })),
+  toggleSendMomentsStyle: (option) =>
+    set((state) => ({
+      sendMomentsStyle: state.sendMomentsStyle.includes(option)
+        ? state.sendMomentsStyle.filter((m) => m !== option)
+        : [...state.sendMomentsStyle, option],
+    })),
+  toggleCheckInRhythm: (option) =>
+    set((state) => ({
+      checkInRhythm: state.checkInRhythm.includes(option)
+        ? state.checkInRhythm.filter((r) => r !== option)
+        : [...state.checkInRhythm, option],
+    })),
 
   /** Persist questionnaire answers for handoff / analytics. */
   setOnboardingData: (data) =>
@@ -39,6 +59,9 @@ export const useOnboardingStore = create((set) => ({
       situation: data.situation ?? [],
       hardestPart: data.hardestPart ?? [],
       bringsYouHere: data.bringsYouHere ?? [],
+      sendMomentsStyle: data.sendMomentsStyle ?? [],
+      checkInRhythm: data.checkInRhythm ?? [],
+      partnerName: data.partnerName ?? '',
     }),
 
   /** Clear all onboarding data. */
@@ -47,5 +70,8 @@ export const useOnboardingStore = create((set) => ({
       situation: [],
       hardestPart: [],
       bringsYouHere: [],
+      sendMomentsStyle: [],
+      checkInRhythm: [],
+      partnerName: '',
     }),
 }));
