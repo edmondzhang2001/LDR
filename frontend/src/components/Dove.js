@@ -8,7 +8,21 @@ const DOVE_SHADOW = 'rgba(232, 180, 184, 0.35)';
  * Cute cartoon dove (pastel white) for the send animation.
  * leftWingRotation / rightWingRotation can be Animated.Value (e.g. -1..1) or number (degrees).
  */
-export function Dove({ size = 56, leftWingRotation = 0, rightWingRotation = 0, style }) {
+export function Dove({
+  size = 56,
+  leftWingRotation = 0,
+  rightWingRotation = 0,
+  style,
+  bodyColor = DOVE_WHITE,
+  headColor = DOVE_WHITE,
+  wingColor = DOVE_WHITE,
+  beakColor = colors.textMuted,
+  shadowColor = DOVE_SHADOW,
+  shadowOpacity = 1,
+  outlineColor,
+  outlineWidth = 0,
+  hideBeak = false,
+}) {
   const s = size / 56;
   const leftRot = typeof leftWingRotation === 'number'
     ? `${leftWingRotation}deg`
@@ -22,21 +36,88 @@ export function Dove({ size = 56, leftWingRotation = 0, rightWingRotation = 0, s
 
   return (
     <View style={[styles.root, { width: size * 1.4, height: size }, style]}>
-      <View style={[styles.body, { width: 28 * s, height: 36 * s, borderRadius: 14 * s }]} />
-      <View style={[styles.head, { width: 20 * s, height: 20 * s, borderRadius: 10 * s, top: -4 * s, right: 4 * s }]} />
-      <View style={[styles.beak, { width: 8 * s, height: 6 * s, top: 8 * s, right: -2 * s }]} />
+      <View
+        style={[
+          styles.body,
+          {
+            width: 28 * s,
+            height: 36 * s,
+            borderRadius: 14 * s,
+            backgroundColor: bodyColor,
+            shadowColor,
+            shadowOpacity,
+            borderColor: outlineColor,
+            borderWidth: outlineWidth,
+          },
+        ]}
+      />
+      <View
+        style={[
+          styles.head,
+          {
+            width: 20 * s,
+            height: 20 * s,
+            borderRadius: 10 * s,
+            top: -4 * s,
+            right: 4 * s,
+            backgroundColor: headColor,
+            shadowColor,
+            shadowOpacity,
+            borderColor: outlineColor,
+            borderWidth: outlineWidth,
+          },
+        ]}
+      />
+      {!hideBeak && (
+        <View
+          style={[
+            styles.beak,
+            {
+              width: 8 * s,
+              height: 6 * s,
+              top: 8 * s,
+              right: -2 * s,
+              backgroundColor: beakColor,
+              borderColor: outlineColor,
+              borderWidth: outlineWidth > 0 ? Math.max(1, outlineWidth * 0.8) : 0,
+            },
+          ]}
+        />
+      )}
       <LeftWing
         style={[
           styles.wing,
           styles.wingLeft,
-          { width: 22 * s, height: 14 * s, top: 10 * s, left: -4 * s, transform: [{ rotate: leftRot }] },
+          {
+            width: 22 * s,
+            height: 14 * s,
+            top: 10 * s,
+            left: -4 * s,
+            transform: [{ rotate: leftRot }],
+            backgroundColor: wingColor,
+            shadowColor,
+            shadowOpacity,
+            borderColor: outlineColor,
+            borderWidth: outlineWidth,
+          },
         ]}
       />
       <RightWing
         style={[
           styles.wing,
           styles.wingRight,
-          { width: 22 * s, height: 14 * s, top: 10 * s, right: -4 * s, transform: [{ rotate: rightRot }] },
+          {
+            width: 22 * s,
+            height: 14 * s,
+            top: 10 * s,
+            right: -4 * s,
+            transform: [{ rotate: rightRot }],
+            backgroundColor: wingColor,
+            shadowColor,
+            shadowOpacity,
+            borderColor: outlineColor,
+            borderWidth: outlineWidth,
+          },
         ]}
       />
     </View>

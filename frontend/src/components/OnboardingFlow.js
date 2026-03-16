@@ -28,6 +28,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { LDRBackground } from './LDRBackground';
+import { Dove } from './Dove';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONTAINER_HEIGHT = SCREEN_HEIGHT;
@@ -106,24 +107,25 @@ const FEATURE_TITLES = [
   'ONE SUBSCRIPTION. BOTH OF YOU.',
 ];
 const TOTAL_SLIDES = 12;
-const QUESTION_SLIDES_COUNT = 6;
-const PHOTO_DELIVERY_SLIDE_INDEX = 6;
-const SCIENCE_SLIDE_INDEX = 7;
-const FEATURE_SLIDES_START = 8;
-const FEATURE_SLIDES_END = 10;
+const PHOTO_DELIVERY_SLIDE_INDEX = 3;
+const PARTNER_NAME_SLIDE_INDEX = 1;
+const SCIENCE_SLIDE_INDEX = 4;
+const FEATURE_SLIDE_INDICES = [2, 8, 10];
 const FINAL_SLIDE_INDEX = TOTAL_SLIDES - 1;
 const SCIENCE_ANIMATION = {
   titleDelay: 0,
   sentence1Delay: 2200,
-  sentence2Delay: 8000,
-  graphRevealDelay: 12000,
-  graphFillDelay: 12400,
+  sentence2Delay: 5200,
+  graphRevealDelay: 8500,
+  graphFillDelay: 9500,
   stayBarDuration: 3600,
-  insightRevealDelay: 16200,
-  buttonDelay: 19500,
+  insightRevealDelay: 11200,
+  buttonDelay: 15500,
 };
 
 const SEGMENT_FILL_DURATION = 280;
+const DELIVERY_DOVE_SIZE = 74;
+const DELIVERY_WOBBLE_DEG = 5;
 
 /** Premium segmented progress bar: smooth left-to-right fill per segment (Reanimated). */
 function SegmentedProgressBar({ segments, activeIndex }) {
@@ -197,6 +199,12 @@ export function OnboardingFlow() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const deliveryAnim = useRef(new Animated.Value(0)).current;
+  const deliveryDoveOpacity = useRef(new Animated.Value(0)).current;
+  const deliveryDoveX = useRef(new Animated.Value(-26)).current;
+  const deliveryDoveY = useRef(new Animated.Value(18)).current;
+  const deliveryFlyRotate = useRef(new Animated.Value(0)).current;
+  const deliveryWingPhase = useRef(new Animated.Value(0)).current;
+  const deliveryWingLoopRef = useRef(null);
   const partnerBubbleAnim = useRef(new Animated.Value(0)).current;
   const partnerKeyboardLiftAnim = useRef(new Animated.Value(0)).current;
   const scienceStayProgress = useRef(new Animated.Value(0)).current;
@@ -242,18 +250,64 @@ export function OnboardingFlow() {
   useEffect(() => {
     if (slideIndex !== PHOTO_DELIVERY_SLIDE_INDEX) return undefined;
     deliveryAnim.setValue(0);
-    const loop = Animated.loop(
+    deliveryDoveOpacity.setValue(1);
+    deliveryDoveX.setValue(0);
+    deliveryDoveY.setValue(0);
+    deliveryFlyRotate.setValue(0);
+    deliveryWingPhase.setValue(0);
+
+    const cameraLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(deliveryAnim, { toValue: 1, duration: 2200, useNativeDriver: true }),
+        Animated.timing(deliveryAnim, { toValue: 1, duration: 2200, useNativeDriver: false }),
         Animated.delay(300),
       ])
     );
-    loop.start();
-    return () => loop.stop();
-  }, [deliveryAnim, slideIndex]);
+    cameraLoop.start();
+
+    deliveryWingLoopRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(deliveryWingPhase, { toValue: 1, duration: 130, useNativeDriver: false }),
+        Animated.timing(deliveryWingPhase, { toValue: -1, duration: 130, useNativeDriver: false }),
+      ]),
+      { iterations: -1 }
+    );
+    deliveryWingLoopRef.current.start();
+
+    const orbitLoop = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(deliveryDoveX, { toValue: 26, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(deliveryDoveY, { toValue: -12, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(deliveryFlyRotate, { toValue: DELIVERY_WOBBLE_DEG, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+        ]),
+        Animated.parallel([
+          Animated.timing(deliveryDoveX, { toValue: 8, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(deliveryDoveY, { toValue: -30, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(deliveryFlyRotate, { toValue: -DELIVERY_WOBBLE_DEG, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+        ]),
+        Animated.parallel([
+          Animated.timing(deliveryDoveX, { toValue: -22, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(deliveryDoveY, { toValue: -10, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(deliveryFlyRotate, { toValue: DELIVERY_WOBBLE_DEG, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+        ]),
+        Animated.parallel([
+          Animated.timing(deliveryDoveX, { toValue: 0, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(deliveryDoveY, { toValue: 0, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+          Animated.timing(deliveryFlyRotate, { toValue: 0, duration: 1300, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+        ]),
+      ])
+    );
+    orbitLoop.start();
+
+    return () => {
+      cameraLoop.stop();
+      orbitLoop.stop();
+      deliveryWingLoopRef.current?.stop?.();
+    };
+  }, [deliveryAnim, slideIndex, deliveryDoveOpacity, deliveryDoveX, deliveryDoveY, deliveryFlyRotate, deliveryWingPhase]);
 
   useEffect(() => {
-    if (slideIndex === 5) return undefined;
+    if (slideIndex === PARTNER_NAME_SLIDE_INDEX) return undefined;
     setIsPartnerNameSubmitting(false);
     setSubmittedPartnerName('');
     partnerBubbleAnim.setValue(0);
@@ -348,17 +402,17 @@ export function OnboardingFlow() {
 
   /** Right-tap advance: allowed unless we're on a question slide with no selection. */
   const canAdvance =
-    slideIndex < QUESTION_SLIDES_COUNT
-      ? (slideIndex === 0 && situation.length > 0) ||
-        (slideIndex === 1 && hardestPart.length > 0) ||
-        (slideIndex === 2 && bringsYouHere.length > 0) ||
-        (slideIndex === 3 && sendMomentsStyle.length > 0) ||
-        (slideIndex === 4 && checkInRhythm.length > 0) ||
-        (slideIndex === 5 && partnerName.trim().length > 0)
-      : slideIndex < TOTAL_SLIDES - 1;
+    (slideIndex === 0 && situation.length > 0) ||
+    (slideIndex === 5 && hardestPart.length > 0) ||
+    (slideIndex === 6 && bringsYouHere.length > 0) ||
+    (slideIndex === 7 && sendMomentsStyle.length > 0) ||
+    (slideIndex === 9 && checkInRhythm.length > 0) ||
+    (slideIndex >= 0 &&
+      slideIndex < TOTAL_SLIDES - 1 &&
+      ![0, 5, 6, 7, 9, PARTNER_NAME_SLIDE_INDEX].includes(slideIndex));
 
   const handleSlideNext = () => {
-    if (slideIndex === QUESTION_SLIDES_COUNT - 1) {
+    if (slideIndex === 9) {
       setOnboardingData({
         situation,
         hardestPart,
@@ -413,28 +467,25 @@ export function OnboardingFlow() {
 
   /** Returns the slide content for the given index (for tap-through state-driven render). */
   function renderSlideContent(idx) {
-    if (idx <= 4) {
-      const q = [QUESTION_1, QUESTION_2, QUESTION_3, QUESTION_4, QUESTION_5][idx];
+    if ([0, 5, 6, 7, 9].includes(idx)) {
+      const q =
+        idx === 0 ? QUESTION_1 :
+          idx === 5 ? QUESTION_2 :
+            idx === 6 ? QUESTION_3 :
+              idx === 7 ? QUESTION_4 :
+                QUESTION_5;
       const sel =
-        idx === 0
-          ? situation
-          : idx === 1
-            ? hardestPart
-            : idx === 2
-              ? bringsYouHere
-              : idx === 3
-                ? sendMomentsStyle
-                : checkInRhythm;
+        idx === 0 ? situation :
+          idx === 5 ? hardestPart :
+            idx === 6 ? bringsYouHere :
+              idx === 7 ? sendMomentsStyle :
+                checkInRhythm;
       const tog =
-        idx === 0
-          ? toggleSituation
-          : idx === 1
-            ? toggleHardestPart
-            : idx === 2
-              ? toggleBringsYouHere
-              : idx === 3
-                ? toggleSendMomentsStyle
-                : toggleCheckInRhythm;
+        idx === 0 ? toggleSituation :
+          idx === 5 ? toggleHardestPart :
+            idx === 6 ? toggleBringsYouHere :
+              idx === 7 ? toggleSendMomentsStyle :
+                toggleCheckInRhythm;
       return (
         <View style={[styles.slide, styles.questionSlide]}>
           <Pressable onPress={() => (idx === 0 ? setPhase('intro') : goToSlide(idx - 1))} style={styles.backButton}>
@@ -459,7 +510,7 @@ export function OnboardingFlow() {
           <TouchableOpacity
             style={[styles.continueBtn, !(sel.length > 0) && styles.primaryButtonDisabled]}
             onPress={() => {
-              if (idx === QUESTION_SLIDES_COUNT - 1) {
+              if (idx === 9) {
                 setOnboardingData({
                   situation,
                   hardestPart,
@@ -479,7 +530,7 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    if (idx === 5) {
+    if (idx === PARTNER_NAME_SLIDE_INDEX) {
       const trimmedName = partnerName.trim();
       const inputOpacity = partnerBubbleAnim.interpolate({
         inputRange: [0, 0.15, 0.22, 1],
@@ -582,54 +633,52 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    if (idx === 6) {
-      const cameraScale = deliveryAnim.interpolate({
-        inputRange: [0, 0.18, 0.34, 1],
-        outputRange: [1, 1.1, 1, 1],
-      });
-      const flashOpacity = deliveryAnim.interpolate({
-        inputRange: [0, 0.14, 0.22, 1],
-        outputRange: [0, 0.9, 0, 0],
-      });
-      const photoOpacity = deliveryAnim.interpolate({
-        inputRange: [0, 0.26, 0.42, 1],
-        outputRange: [0, 0, 1, 1],
-      });
+    if (idx === PHOTO_DELIVERY_SLIDE_INDEX) {
       const doveTranslateX = deliveryAnim.interpolate({
-        inputRange: [0.38, 1],
-        outputRange: [-10, 170],
+        inputRange: [0, 0.5, 1],
+        outputRange: [-4, 6, -4],
       });
       const doveTranslateY = deliveryAnim.interpolate({
-        inputRange: [0.38, 1],
-        outputRange: [10, -90],
+        inputRange: [0, 0.5, 1],
+        outputRange: [2, -4, 2],
+      });
+      const flyRotateStr = deliveryFlyRotate.interpolate({
+        inputRange: [-DELIVERY_WOBBLE_DEG, DELIVERY_WOBBLE_DEG],
+        outputRange: [`-${DELIVERY_WOBBLE_DEG}deg`, `${DELIVERY_WOBBLE_DEG}deg`],
       });
       return (
         <View style={styles.slide}>
           <View style={styles.deliveryStage}>
-            <Animated.View style={[styles.cameraBubble, { transform: [{ scale: cameraScale }] }]}>
-              <Ionicons name="camera" size={34} color={colors.blushDark} />
-            </Animated.View>
-            <Animated.View style={[styles.cameraFlash, { opacity: flashOpacity }]} />
-            <Animated.View style={[styles.photoCardAnimated, { opacity: photoOpacity }]}>
-              <Ionicons name="image" size={30} color={colors.skyDark} />
-            </Animated.View>
             <Animated.View
               style={[
                 styles.doveDelivery,
                 {
-                  transform: [{ translateX: doveTranslateX }, { translateY: doveTranslateY }],
+                  opacity: deliveryDoveOpacity,
+                  transform: [
+                    { translateX: Animated.add(doveTranslateX, deliveryDoveX) },
+                    { translateY: Animated.add(doveTranslateY, deliveryDoveY) },
+                    { rotate: flyRotateStr },
+                  ],
                 },
               ]}
             >
-              <Ionicons name="paper-plane" size={28} color={colors.blushDark} />
+              <Dove
+                size={DELIVERY_DOVE_SIZE}
+                leftWingRotation={deliveryWingPhase}
+                rightWingRotation={deliveryWingPhase}
+                outlineColor={colors.blushDark}
+                outlineWidth={1.6}
+                hideBeak
+              />
+              <View style={styles.doveCarryMiniCard} />
             </Animated.View>
           </View>
           <Text style={styles.slideTitle}>{FEATURE_TITLES[0]}</Text>
-          <Text style={styles.slideSubtitle}>Snap a photo, then watch our little dove whisk it away to your partner.</Text>
+          <Text style={styles.slideSubtitle}>Then watch our little dove whisk it away to your partner.</Text>
         </View>
       );
     }
-    if (idx === 7) {
+    if (idx === SCIENCE_SLIDE_INDEX) {
       const stayWidth = scienceStayProgress.interpolate({
         inputRange: [0, 1],
         outputRange: ['0%', '86%'],
@@ -697,7 +746,7 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    if (idx === 8) {
+    if (idx === 2) {
       return (
         <View style={styles.slide}>
           <View style={styles.slide1Content}>
@@ -748,11 +797,11 @@ export function OnboardingFlow() {
             </View>
           </View>
           <Text style={styles.slideTitle}>{FEATURE_TITLES[1]}</Text>
-          <Text style={styles.slideSubtitle}>Send puffy postcards and little moments. Watch them fly to your person.</Text>
+          <Text style={styles.slideSubtitle}>Send puffy postcards and little moments.</Text>
         </View>
       );
     }
-    if (idx === 9) {
+    if (idx === 8) {
       return (
         <View style={styles.slide}>
           <View style={styles.slide2Content}>
@@ -899,9 +948,8 @@ export function OnboardingFlow() {
             {renderSlideContent(slideIndex)}
           </AnimatedReanimated.View>
         </View>
-        {/* Tap-through overlay on photo animation + feature slides; stats/final are button-driven */}
-        {(slideIndex === PHOTO_DELIVERY_SLIDE_INDEX ||
-          (slideIndex >= FEATURE_SLIDES_START && slideIndex <= FEATURE_SLIDES_END)) && (
+        {/* Tap-through overlay on photo animation + feature slides; question/science/final are button-driven */}
+        {(slideIndex === PHOTO_DELIVERY_SLIDE_INDEX || FEATURE_SLIDE_INDICES.includes(slideIndex)) && (
           <View style={styles.tapOverlay}>
             <Pressable style={styles.tapZoneLeft} onPress={handleSlideBack} />
             <Pressable style={styles.tapZoneRight} onPress={handleSlideNext} />
@@ -1371,15 +1419,26 @@ const styles = StyleSheet.create({
   },
   doveDelivery: {
     position: 'absolute',
-    left: 80,
-    top: 130,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.blush + '66',
+    left: 72,
+    top: 114,
+    width: 140,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
-    ...SHADOW,
+  },
+  doveCarryMiniCard: {
+    position: 'absolute',
+    bottom: 14,
+    width: 28,
+    height: 20,
+    borderRadius: 6,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.blushDark,
+    shadowColor: colors.shadowStrong,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
   },
   collageContainer: {
     width: '100%',
