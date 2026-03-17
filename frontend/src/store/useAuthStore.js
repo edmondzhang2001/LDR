@@ -68,8 +68,9 @@ function normalizeReunion(reunion) {
   };
 }
 
-/** Write stats.json and calendar.json to App Group and reload widgets. Uses reunion.startDate for calendar; partner for stats. */
-async function writeWidgetData(partner, reunion) {
+/** Write stats.json and calendar.json to App Group and reload widgets. Uses reunion.startDate for calendar; partner for stats.
+ * statsExtras: optional { location, partnerTime, weatherTemp, weatherIcon } for Duva Stats widget. */
+async function writeWidgetData(partner, reunion, statsExtras) {
   try {
     const sharedPath = getAppGroupDirectory('group.com.edmond.duva');
     if (!sharedPath) return;
@@ -81,6 +82,12 @@ async function writeWidgetData(partner, reunion) {
       name: partner?.name ?? null,
       streak: partner?.streak ?? 0,
       lastActive,
+      ...(statsExtras && {
+        location: statsExtras.location ?? null,
+        partnerTime: statsExtras.partnerTime ?? null,
+        weatherTemp: statsExtras.weatherTemp ?? null,
+        weatherIcon: statsExtras.weatherIcon ?? null,
+      }),
     };
     await FileSystem.writeAsStringAsync(
       `${baseUri}/stats.json`,
@@ -561,6 +568,12 @@ export const useAuthStore = create((set, get) => {
       const { user, partner } = get();
       if (user) SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
       await writeWidgetData(partner, null);
+    },
+
+    /** Refresh stats widget with optional location, partnerTime, weather (for Duva Stats widget). Call from home when weather/partner time are available. */
+    refreshStatsWidget: async (statsExtras) => {
+      const { partner, user } = get();
+      await writeWidgetData(partner, user?.reunion ?? null, statsExtras);
     },
 
     /** Register a photo URL and optional caption after S3 upload; updates user.photos in store. */

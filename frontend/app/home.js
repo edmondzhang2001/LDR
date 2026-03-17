@@ -24,7 +24,7 @@ import { calculateDistance } from '../src/utils/distance';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, partnerId, partner, fetchPartner, refreshUser, saveReunion, endReunion, addPhotoAfterUpload, updateMood, isAnimatingSend, isSendingPhoto, setAnimatingSend, setSendingPhoto, todaysPhotos, fetchTodaysPhotos, deletePhotoFromToday } = useAuthStore();
+  const { user, partnerId, partner, fetchPartner, refreshUser, saveReunion, endReunion, addPhotoAfterUpload, updateMood, isAnimatingSend, isSendingPhoto, setAnimatingSend, setSendingPhoto, todaysPhotos, fetchTodaysPhotos, deletePhotoFromToday, refreshStatsWidget } = useAuthStore();
   const [myLocation, setMyLocation] = useState(null);
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -138,6 +138,19 @@ export default function HomeScreen() {
       });
     return () => { cancelled = true; };
   }, [partnerLoc?.lat, partnerLoc?.lng]);
+
+  // Push location, partner time, and weather into stats widget (iOS)
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !refreshStatsWidget) return;
+    const locationRaw = partner?.meetingLocation ?? partner?.location?.city;
+    const location = (typeof locationRaw === 'string' ? locationRaw.trim() : locationRaw) || null;
+    refreshStatsWidget({
+      location,
+      partnerTime: partnerTime || null,
+      weatherTemp: weather?.tempFormatted ?? null,
+      weatherIcon: weather?.icon ?? null,
+    });
+  }, [partner, partnerTime, weather, refreshStatsWidget]);
 
   // Level 1 sync: when app comes to foreground, silently fetch latest partner + current user data
   useEffect(() => {
