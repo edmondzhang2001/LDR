@@ -1,8 +1,11 @@
 import WidgetKit
 import SwiftUI
+import ImageIO
 
 // App theme colors (from frontend/src/theme/colors.js)
 private let colorCream = Color(red: 255/255, green: 248/255, blue: 245/255)     // #FFF8F5
+// Dark background when no photo — darker tone from theme (text/blush family), keeps white text readable
+private let colorNoPhotoBackground = Color(red: 107/255, green: 90/255, blue: 94/255)  // #6B5A5E
 
 struct CalendarData: Codable {
     let daysRemaining: Int
@@ -18,6 +21,8 @@ struct CalendarEntry: TimelineEntry {
 }
 
 struct CalendarProvider: TimelineProvider {
+    private static let imageMaxPixelSize = 700
+
     func placeholder(in context: Context) -> CalendarEntry {
         CalendarEntry(date: Date(), daysRemaining: 0, partnerName: nil, image: nil)
     }
@@ -44,8 +49,27 @@ struct CalendarProvider: TimelineProvider {
             partnerName = decoded.partnerFirstName ?? decoded.partnerName
         }
         let imageURL = sharedURL.appendingPathComponent("calendar_widget_photo.jpg")
-        let image: UIImage? = (try? Data(contentsOf: imageURL, options: .uncached)).flatMap { UIImage(data: $0) }
+        let image = downsampleImage(at: imageURL, maxPixelSize: Self.imageMaxPixelSize)
         return CalendarEntry(date: Date(), daysRemaining: daysRemaining, partnerName: partnerName, image: image)
+    }
+
+    /// Decode a scaled bitmap directly to avoid loading full-resolution camera photos in memory.
+    private func downsampleImage(at url: URL, maxPixelSize: Int) -> UIImage? {
+        let sourceOptions: CFDictionary = [
+            kCGImageSourceShouldCache: false
+        ] as CFDictionary
+
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else { return nil }
+
+        let thumbnailOptions: CFDictionary = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true
+        ] as CFDictionary
+
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else { return nil }
+        return UIImage(cgImage: cgImage)
     }
 }
 
@@ -68,7 +92,7 @@ struct DuvaCalendarWidgetEntryView : View {
                     .scaledToFill()
                     .overlay(Color.black.opacity(0.5))
             } else {
-                colorCream
+                colorNoPhotoBackground
             }
             
             VStack(spacing: 4) {
@@ -99,7 +123,7 @@ struct DuvaCalendarWidget: Widget {
         StaticConfiguration(kind: kind, provider: CalendarProvider()) { entry in
             if #available(iOS 17.0, *) {
                 DuvaCalendarWidgetEntryView(entry: entry)
-                    .containerBackground(colorCream, for: .widget)
+                    .containerBackground(entry.image == nil ? colorNoPhotoBackground : colorCream, for: .widget)
             } else {
                 DuvaCalendarWidgetEntryView(entry: entry)
             }

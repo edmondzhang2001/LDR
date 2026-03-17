@@ -2,15 +2,17 @@ const express = require('express');
 const User = require('../models/User');
 const Couple = require('../models/Couple');
 const { requireAuth } = require('../middleware/auth');
+const { createPairingLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
+const pairingLimiter = createPairingLimiter();
 const CODE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 function generateSixDigitCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-router.post('/pair/generate', requireAuth, async (req, res) => {
+router.post('/pair/generate', pairingLimiter, requireAuth, async (req, res) => {
   try {
     const user = req.user;
     if (user.partnerId) {
@@ -47,7 +49,7 @@ router.post('/unlink', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/pair/join', requireAuth, async (req, res) => {
+router.post('/pair/join', pairingLimiter, requireAuth, async (req, res) => {
   try {
     const { code } = req.body;
     if (!code || !/^\d{6}$/.test(String(code).trim())) {

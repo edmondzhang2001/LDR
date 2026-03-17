@@ -8,6 +8,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 
+const { createGeneralLimiter } = require('./middleware/rateLimit');
 const authRouter = require('./routes/auth');
 const coupleRouter = require('./routes/couple');
 const photoRouter = require('./routes/photo');
@@ -21,6 +22,9 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// Rate limit all API routes (webhooks excluded so RevenueCat etc. are not blocked)
+app.use('/api', createGeneralLimiter());
 
 app.use('/api/auth', authRouter);
 app.use('/api/couple', coupleRouter);

@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import ImageIO
 
 struct PartnerStats: Codable {
     let name: String?
@@ -7,6 +8,8 @@ struct PartnerStats: Codable {
 }
 
 struct Provider: TimelineProvider {
+    private static let imageMaxPixelSize = 1200
+
     func placeholder(in context: Context) -> SimpleEntry {
         SimpleEntry(date: Date(), image: nil, caption: nil, stats: nil)
     }
@@ -29,9 +32,7 @@ struct Provider: TimelineProvider {
         let appGroup = "group.com.edmond.duva"
         guard let sharedURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else { return nil }
         let imageURL = sharedURL.appendingPathComponent("current_widget_photo.jpg")
-        // Read raw bytes to bypass any file-descriptor / cache staleness
-        guard let data = try? Data(contentsOf: imageURL, options: .uncached) else { return nil }
-        return UIImage(data: data)
+        return downsampleImage(at: imageURL, maxPixelSize: Self.imageMaxPixelSize)
     }
 
     private func loadStats() -> PartnerStats? {
@@ -50,6 +51,25 @@ struct Provider: TimelineProvider {
         guard let caption = try? String(contentsOf: captionURL, encoding: .utf8) else { return nil }
         let trimmed = caption.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Decode a scaled bitmap directly to avoid loading full-resolution camera photos in memory.
+    private func downsampleImage(at url: URL, maxPixelSize: Int) -> UIImage? {
+        let sourceOptions: CFDictionary = [
+            kCGImageSourceShouldCache: false
+        ] as CFDictionary
+
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else { return nil }
+
+        let thumbnailOptions: CFDictionary = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true
+        ] as CFDictionary
+
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else { return nil }
+        return UIImage(cgImage: cgImage)
     }
 }
 

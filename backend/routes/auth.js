@@ -5,9 +5,11 @@ const appleSignin = require('apple-signin-auth');
 const User = require('../models/User');
 const { JWT_SECRET } = require('../config');
 const { requireAuth } = require('../middleware/auth');
+const { createAuthLoginLimiter } = require('../middleware/rateLimit');
 const authController = require('../controllers/authController');
 
 const router = express.Router();
+const authLoginLimiter = createAuthLoginLimiter();
 const googleClient = process.env.GOOGLE_CLIENT_ID
   ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
   : null;
@@ -142,9 +144,9 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/apple', authController.appleLogin);
+router.post('/apple', authLoginLimiter, authController.appleLogin);
 
-router.post('/oauth', async (req, res) => {
+router.post('/oauth', authLoginLimiter, async (req, res) => {
   try {
     const {
       identityToken,

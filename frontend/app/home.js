@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert, Modal, TextInput, Image, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert, Modal, TextInput, Image, RefreshControl, KeyboardAvoidingView, Platform, ActionSheetIOS } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as Battery from 'expo-battery';
@@ -82,7 +82,20 @@ export default function HomeScreen() {
   }, [widgetPhotoPreviewUri]);
 
   const handleSetCalendarWidgetPhoto = useCallback(() => {
-    handleOpenWidgetPhotoPicker();
+    if (Platform.OS !== 'ios') return;
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        options: ['Cancel', 'Set background photo', 'Remove background'],
+        cancelButtonIndex: 0,
+      },
+      (buttonIndex) => {
+        if (buttonIndex === 1) handleOpenWidgetPhotoPicker();
+        if (buttonIndex === 2) {
+          syncCalendarWidgetPhoto(null);
+          Alert.alert('Done', 'Widget background removed.');
+        }
+      }
+    );
   }, [handleOpenWidgetPhotoPicker]);
 
   const handleFetchTodaysPhotos = useCallback(async () => {
@@ -467,6 +480,17 @@ export default function HomeScreen() {
             >
               <Ionicons name="images-outline" size={16} color={colors.skyDark} />
               <Text style={styles.widgetPhotoChooseAnotherText}>Choose another</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.widgetPhotoRemoveBg, pressed && styles.uploadButtonPressed]}
+              onPress={async () => {
+                setWidgetPhotoPreviewUri(null);
+                await syncCalendarWidgetPhoto(null);
+                Alert.alert('Done', 'Widget background removed.');
+              }}
+            >
+              <Ionicons name="image-outline" size={16} color={colors.textMuted} />
+              <Text style={styles.widgetPhotoRemoveBgText}>Remove background</Text>
             </Pressable>
             <View style={styles.uploadModalButtons}>
               <Pressable
@@ -915,5 +939,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.skyDark,
+  },
+  widgetPhotoRemoveBg: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  widgetPhotoRemoveBgText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textMuted,
   },
 });

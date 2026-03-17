@@ -16,3 +16,13 @@ Node.js/Express API for the Duva long-distance relationship app.
 - **Upload:** `POST /api/upload/presigned-url` (auth, body: `filename`, `contentType`) → returns presigned PUT URL and `key`.
 
 Protected routes use header: `Authorization: Bearer <token>`.
+
+## Rate limiting
+
+All `/api/*` routes are rate-limited by IP (webhooks are excluded). Optional env vars:
+
+- `RATE_LIMIT_MAX` — general API limit per 15 min (default: 200)
+- `RATE_LIMIT_AUTH_MAX` — sign-in (OAuth/Apple) attempts per 15 min (default: 15)
+- `RATE_LIMIT_PAIRING_MAX` — pair generate/join attempts per 15 min (default: 20)
+
+When exceeded, the API responds with `429 Too Many Requests`.
