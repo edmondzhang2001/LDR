@@ -16,6 +16,7 @@ struct StatsData: Codable {
     let partnerTime: String?
     let weatherTemp: String?
     let weatherIcon: String?
+    let batteryLevel: Double?  // 0...1 from partner API
 }
 
 // 2. Timeline entry
@@ -27,12 +28,13 @@ struct StatsEntry: TimelineEntry {
     let partnerTime: String?
     let weatherTemp: String?
     let weatherIcon: String?
+    let batteryLevel: Double?  // 0...1
 }
 
 // 3. Provider
 struct StatsProvider: TimelineProvider {
     func placeholder(in context: Context) -> StatsEntry {
-        StatsEntry(date: Date(), name: "Partner", streak: 0, location: nil, partnerTime: nil, weatherTemp: nil, weatherIcon: nil)
+        StatsEntry(date: Date(), name: "Partner", streak: 0, location: nil, partnerTime: nil, weatherTemp: nil, weatherIcon: nil, batteryLevel: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (StatsEntry) -> ()) {
@@ -46,7 +48,7 @@ struct StatsProvider: TimelineProvider {
 
     private func getLatestEntry() -> StatsEntry {
         let appGroup = "group.com.edmond.duva"
-        let defaultEntry = StatsEntry(date: Date(), name: "Partner", streak: 0, location: nil, partnerTime: nil, weatherTemp: nil, weatherIcon: nil)
+        let defaultEntry = StatsEntry(date: Date(), name: "Partner", streak: 0, location: nil, partnerTime: nil, weatherTemp: nil, weatherIcon: nil, batteryLevel: nil)
 
         guard let sharedURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else {
             return defaultEntry
@@ -72,6 +74,7 @@ struct StatsProvider: TimelineProvider {
             ? stats.weatherTemp
             : nil
         let weatherIcon = stats.weatherIcon
+        let batteryLevel = stats.batteryLevel
 
         return StatsEntry(
             date: Date(),
@@ -80,9 +83,20 @@ struct StatsProvider: TimelineProvider {
             location: location,
             partnerTime: partnerTime,
             weatherTemp: weatherTemp,
-            weatherIcon: weatherIcon
+            weatherIcon: weatherIcon,
+            batteryLevel: batteryLevel
         )
     }
+}
+
+/// SF Symbol name for battery level (0...1).
+private func sfSymbolForBatteryLevel(_ level: Double?) -> String {
+    guard let level = level, level >= 0, level <= 1 else { return "battery.100" }
+    if level <= 0.25 { return "battery.0" }
+    if level <= 0.5 { return "battery.25" }
+    if level <= 0.75 { return "battery.50" }
+    if level < 1.0 { return "battery.75" }
+    return "battery.100"
 }
 
 /// Map OpenWeather icon code (e.g. "02d") to SF Symbol name.
@@ -109,53 +123,87 @@ struct DuvaStatsWidgetEntryView: View {
         entry.name.split(separator: " ").first.map(String.init) ?? "Partner"
     }
 
+    /// Long city names use smaller time/weather to leave room for location.
+    private var isLongLocation: Bool {
+        let loc = entry.location ?? ""
+        return loc.count > 14
+    }
+
+    private var rowIconSize: CGFloat { isLongLocation ? 18 : 20 }
+    private var locationFontSize: CGFloat { isLongLocation ? 18 : 20 }
+    private var timeWeatherFontSize: CGFloat { isLongLocation ? 16 : 20 }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(partnerFirstName)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+            Text(partnerFirstName + ":")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundColor(colorTextMuted)
                 .textCase(.uppercase)
                 .tracking(0.5)
-                .padding(.bottom, 12)
+                .padding(.bottom, 8)
 
-            VStack(alignment: .leading, spacing: 16) {
-                // Location row
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Location row — use full width so text can wrap; scale down if needed to avoid hard cutoff
+                HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "location.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: rowIconSize))
                         .foregroundColor(colorBlushDark)
                     Text(entry.location ?? "—")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(.system(size: locationFontSize, weight: .semibold, design: .rounded))
                         .foregroundColor(colorText)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.65)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                // Time row
-                HStack(spacing: 12) {
+                // Time row — smaller font when location is long
+                HStack(spacing: 8) {
                     Image(systemName: "clock.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: rowIconSize))
                         .foregroundColor(colorBlushDark)
                     Text(entry.partnerTime ?? "—")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(.system(size: timeWeatherFontSize, weight: .semibold, design: .rounded))
                         .foregroundColor(colorText)
                 }
 
-                // Weather row
-                HStack(spacing: 12) {
+                // Weather row — smaller font when location is long
+                HStack(spacing: 8) {
                     Image(systemName: sfSymbolForWeatherIcon(entry.weatherIcon))
-                        .font(.system(size: 22))
+                        .font(.system(size: rowIconSize))
                         .foregroundColor(colorSkyDark)
                     Text(entry.weatherTemp ?? "—")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(.system(size: timeWeatherFontSize, weight: .semibold, design: .rounded))
                         .foregroundColor(colorText)
+                }
+
+                // Battery row — partner's battery percentage (0...1 from API)
+                if let level = entry.batteryLevel, level >= 0, level <= 1 {
+                    HStack(spacing: 8) {
+                        Image(systemName: sfSymbolForBatteryLevel(level))
+                            .font(.system(size: rowIconSize))
+                            .foregroundColor(colorBlushDark)
+                        Text("\(Int(round(level * 100)))%")
+                            .font(.system(size: timeWeatherFontSize, weight: .semibold, design: .rounded))
+                            .foregroundColor(colorText)
+                    }
                 }
             }
 
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(12)
         .background(colorCream)
+    }
+}
+
+private struct StatsContainerBackgroundModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content.containerBackground(colorCream, for: .widget)
+        } else {
+            content
+        }
     }
 }
 
@@ -165,12 +213,8 @@ struct DuvaStatsWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: StatsProvider()) { entry in
-            if #available(iOS 17.0, *) {
-                DuvaStatsWidgetEntryView(entry: entry)
-                    .containerBackground(colorCream, for: .widget)
-            } else {
-                DuvaStatsWidgetEntryView(entry: entry)
-            }
+            DuvaStatsWidgetEntryView(entry: entry)
+                .modifier(StatsContainerBackgroundModifier())
         }
         .configurationDisplayName("Duva Stats")
         .description("Partner's location, time, and weather.")

@@ -140,19 +140,25 @@ struct DuvaImageWidgetEntryView: View {
     }
 }
 
+private struct ImageWidgetContainerBackgroundModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content.containerBackground(Color(red: 255/255, green: 248/255, blue: 245/255), for: .widget)
+        } else {
+            content
+                .padding()
+                .background()
+        }
+    }
+}
+
 struct DuvaImageWidget: Widget {
     let kind: String = "DuvaImageWidget"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
-            if #available(iOS 17.0, *) {
-                DuvaImageWidgetEntryView(entry: entry)
-                    .containerBackground(Color(red: 255/255, green: 248/255, blue: 245/255), for: .widget)
-            } else {
-                DuvaImageWidgetEntryView(entry: entry)
-                    .padding()
-                    .background()
-            }
+            DuvaImageWidgetEntryView(entry: entry)
+                .modifier(ImageWidgetContainerBackgroundModifier())
         }
         .configurationDisplayName("Duva Photo")
         .description("See the latest photo from your partner.")

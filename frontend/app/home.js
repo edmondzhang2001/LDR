@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert, Modal, TextInput, Image, RefreshControl, KeyboardAvoidingView, Platform, ActionSheetIOS } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -38,6 +38,9 @@ export default function HomeScreen() {
   const [widgetPhotoPreviewUri, setWidgetPhotoPreviewUri] = useState(null);
   const [widgetPhotoSyncing, setWidgetPhotoSyncing] = useState(false);
   const CAPTION_MAX = 60;
+
+  const lastLocationFetch = useRef(0);
+  const LOCATION_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
 
   const handleOpenHistory = () => {
     setHistoryModalVisible(true);
@@ -107,10 +110,31 @@ export default function HomeScreen() {
     }
   }, [fetchTodaysPhotos]);
 
+  const refreshMyLocation = useCallback(async (force = false) => {
+    if (!force && Date.now() - lastLocationFetch.current < LOCATION_COOLDOWN_MS) {
+      return;
+    }
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const { latitude, longitude } = position.coords;
+      const [address] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const city = address?.city ?? address?.subregion ?? address?.region ?? '';
+      await updateLocation({ city, lat: latitude, lng: longitude });
+      setMyLocation({ lat: latitude, lng: longitude });
+      lastLocationFetch.current = Date.now();
+    } catch (e) {
+      setMyLocation(null);
+    }
+  }, []);
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refreshUser(), fetchPartner()]);
+      await Promise.all([refreshUser(), fetchPartner(), refreshMyLocation(true)]);
     } finally {
       setRefreshing(false);
     }
@@ -152,16 +176,17 @@ export default function HomeScreen() {
     });
   }, [partner, partnerTime, weather, refreshStatsWidget]);
 
-  // Level 1 sync: when app comes to foreground, silently fetch latest partner + current user data
+  // Level 1 sync: when app comes to foreground, silently fetch latest partner + current user data + current location
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         fetchPartner();
         refreshUser();
+        refreshMyLocation();
       }
     });
     return () => subscription.remove();
-  }, [fetchPartner, refreshUser]);
+  }, [fetchPartner, refreshUser, refreshMyLocation]);
 
   // Guard: no user (e.g. session invalid / DB wiped) → login
   useEffect(() => {
@@ -177,29 +202,10 @@ export default function HomeScreen() {
     if (user?.partnerId && partner == null) fetchPartner();
   }, [user?.partnerId, partner, fetchPartner]);
 
-  // Request foreground location, reverse-geocode for city, and PUT to backend
+  // Request foreground location on mount and PUT to backend
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted' || cancelled) return;
-        const position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        if (cancelled) return;
-        const { latitude, longitude } = position.coords;
-        const [address] = await Location.reverseGeocodeAsync({ latitude, longitude });
-        if (cancelled) return;
-        const city = address?.city ?? address?.subregion ?? address?.region ?? '';
-        await updateLocation({ city, lat: latitude, lng: longitude });
-        if (!cancelled) setMyLocation({ lat: latitude, lng: longitude });
-      } catch (e) {
-        if (!cancelled) setMyLocation(null);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    refreshMyLocation();
+  }, [refreshMyLocation]);
 
   // Sync battery level on mount and when it changes while app is open
   useEffect(() => {

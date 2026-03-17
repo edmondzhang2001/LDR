@@ -82,6 +82,7 @@ async function writeWidgetData(partner, reunion, statsExtras) {
       name: partner?.name ?? null,
       streak: partner?.streak ?? 0,
       lastActive,
+      batteryLevel: partner?.batteryLevel ?? null,
       ...(statsExtras && {
         location: statsExtras.location ?? null,
         partnerTime: statsExtras.partnerTime ?? null,

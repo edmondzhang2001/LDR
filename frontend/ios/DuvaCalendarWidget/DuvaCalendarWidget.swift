@@ -75,6 +75,7 @@ struct CalendarProvider: TimelineProvider {
 
 struct DuvaCalendarWidgetEntryView : View {
     var entry: CalendarEntry
+    @Environment(\.widgetFamily) private var family
 
     private var partnerLabel: String {
         guard let full = entry.partnerName?.trimmingCharacters(in: .whitespaces), !full.isEmpty else {
@@ -84,7 +85,40 @@ struct DuvaCalendarWidgetEntryView : View {
         return "SEEING \(first.uppercased()) IN"
     }
 
+    private var partnerFirstName: String {
+        guard let full = entry.partnerName?.trimmingCharacters(in: .whitespaces), !full.isEmpty else {
+            return "them"
+        }
+        return full.split(separator: " ").first.map(String.init) ?? full
+    }
+
     var body: some View {
+        switch family {
+        case .accessoryRectangular:
+            accessoryRectangularView
+        case .accessoryInline:
+            Text("❤️ \(entry.daysRemaining) Days until \(partnerFirstName)")
+                .widgetAccentable()
+        default:
+            homeScreenView
+        }
+    }
+
+    private var accessoryRectangularView: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: "heart.fill")
+                    .font(.headline)
+                Text("\(entry.daysRemaining) Days")
+                    .font(.headline)
+            }
+            Text("until we meet")
+                .font(.caption)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var homeScreenView: some View {
         ZStack {
             if let uiImage = entry.image {
                 Image(uiImage: uiImage)
@@ -116,21 +150,33 @@ struct DuvaCalendarWidgetEntryView : View {
     }
 }
 
+private struct CalendarContainerBackgroundModifier: ViewModifier {
+    let entry: CalendarEntry
+    @Environment(\.widgetFamily) private var family
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            let fill: some ShapeStyle = family == .systemSmall
+                ? (entry.image == nil ? colorNoPhotoBackground : colorCream)
+                : Color.clear
+            content.containerBackground(fill, for: .widget)
+        } else {
+            content
+        }
+    }
+}
+
 struct DuvaCalendarWidget: Widget {
     let kind: String = "DuvaCalendarWidget"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: CalendarProvider()) { entry in
-            if #available(iOS 17.0, *) {
-                DuvaCalendarWidgetEntryView(entry: entry)
-                    .containerBackground(entry.image == nil ? colorNoPhotoBackground : colorCream, for: .widget)
-            } else {
-                DuvaCalendarWidgetEntryView(entry: entry)
-            }
+            DuvaCalendarWidgetEntryView(entry: entry)
+                .modifier(CalendarContainerBackgroundModifier(entry: entry))
         }
         .configurationDisplayName("Duva Countdown")
         .description("Days until you meet again.")
-        .supportedFamilies([.systemSmall])
+        .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryInline])
         .contentMarginsDisabled()
     }
 }
