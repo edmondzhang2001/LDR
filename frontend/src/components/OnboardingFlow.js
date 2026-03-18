@@ -10,6 +10,7 @@ import {
   Image,
   TextInput,
   Animated,
+  Easing as RNEasing,
   Keyboard,
   Platform,
 } from 'react-native';
@@ -50,6 +51,8 @@ const STOCK_IMAGES = [
   require('../../assets/stock-pics/car.png'),
   require('../../assets/stock-pics/shopping.png'),
 ];
+// Widget-sized coffee image (~124×96) so it doesn't need much resizing
+const WIDGET_COFFEE_IMAGE = require('../../assets/stock-pics/coffee_small.jpg');
 const POSTCARD_PASTELS = [
   '#F5D0D0', // pastel pink
   '#B8E3D4', // mint
@@ -106,12 +109,14 @@ const FEATURE_TITLES = [
   'OUR MAGIC.',
   'ONE SUBSCRIPTION. BOTH OF YOU.',
 ];
-const TOTAL_SLIDES = 12;
+const TOTAL_SLIDES = 13;
 const PHOTO_DELIVERY_SLIDE_INDEX = 3;
+const WIDGET_DROP_SLIDE_INDEX = 4;
 const PARTNER_NAME_SLIDE_INDEX = 1;
-const SCIENCE_SLIDE_INDEX = 4;
-const FEATURE_SLIDE_INDICES = [2, 8, 10];
+const SCIENCE_SLIDE_INDEX = 5;
+const FEATURE_SLIDE_INDICES = [2, 9, 11];
 const FINAL_SLIDE_INDEX = TOTAL_SLIDES - 1;
+const WIDGET_DROP_ANIMATION_DURATION_MS = 4200;
 const SCIENCE_ANIMATION = {
   titleDelay: 0,
   sentence1Delay: 2200,
@@ -195,6 +200,7 @@ export function OnboardingFlow() {
   const [scienceButtonEnabled, setScienceButtonEnabled] = useState(false);
   const [scienceInsightVisible, setScienceInsightVisible] = useState(false);
   const [stayPctDisplay, setStayPctDisplay] = useState(0);
+  const [widgetDropButtonEnabled, setWidgetDropButtonEnabled] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -208,6 +214,9 @@ export function OnboardingFlow() {
   const partnerBubbleAnim = useRef(new Animated.Value(0)).current;
   const partnerKeyboardLiftAnim = useRef(new Animated.Value(0)).current;
   const scienceStayProgress = useRef(new Animated.Value(0)).current;
+  const widgetDropProgress = useRef(new Animated.Value(0)).current;
+  const widgetDropWingPhase = useRef(new Animated.Value(0)).current;
+  const widgetDropWingLoopRef = useRef(null);
 
   const {
     situation,
@@ -386,6 +395,44 @@ export function OnboardingFlow() {
     };
   }, [slideIndex, scienceStayProgress]);
 
+  useEffect(() => {
+    if (slideIndex !== WIDGET_DROP_SLIDE_INDEX) {
+      setWidgetDropButtonEnabled(false);
+      widgetDropProgress.setValue(0);
+      widgetDropWingPhase.setValue(0);
+      widgetDropWingLoopRef.current?.stop?.();
+      return undefined;
+    }
+    setWidgetDropButtonEnabled(false);
+    widgetDropProgress.setValue(0);
+    widgetDropWingPhase.setValue(0);
+
+    widgetDropWingLoopRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(widgetDropWingPhase, { toValue: 1, duration: 100, useNativeDriver: false }),
+        Animated.timing(widgetDropWingPhase, { toValue: -1, duration: 100, useNativeDriver: false }),
+      ]),
+      { iterations: -1 }
+    );
+    widgetDropWingLoopRef.current.start();
+
+    const mainAnim = Animated.timing(widgetDropProgress, {
+      toValue: 1,
+      duration: WIDGET_DROP_ANIMATION_DURATION_MS,
+      easing: RNEasing.bezier(0.33, 0, 0.2, 1),
+      useNativeDriver: false,
+    });
+    mainAnim.start(({ finished }) => {
+      widgetDropWingLoopRef.current?.stop?.();
+      if (finished) setWidgetDropButtonEnabled(true);
+    });
+
+    return () => {
+      mainAnim.stop();
+      widgetDropWingLoopRef.current?.stop?.();
+    };
+  }, [slideIndex, widgetDropProgress, widgetDropWingPhase]);
+
   const handleGetStarted = () => setPhase('slides');
   const handleCreateAccount = () => router.replace('/auth');
   const showCTAs = phase === 'slides' && slideIndex === FINAL_SLIDE_INDEX;
@@ -400,19 +447,20 @@ export function OnboardingFlow() {
     else goToSlide(slideIndex - 1);
   };
 
-  /** Right-tap advance: allowed unless we're on a question slide with no selection. */
+  /** Right-tap advance: allowed unless we're on a question slide with no selection or widget-drop (unskippable). */
   const canAdvance =
     (slideIndex === 0 && situation.length > 0) ||
-    (slideIndex === 5 && hardestPart.length > 0) ||
-    (slideIndex === 6 && bringsYouHere.length > 0) ||
-    (slideIndex === 7 && sendMomentsStyle.length > 0) ||
-    (slideIndex === 9 && checkInRhythm.length > 0) ||
+    (slideIndex === 6 && hardestPart.length > 0) ||
+    (slideIndex === 7 && bringsYouHere.length > 0) ||
+    (slideIndex === 8 && sendMomentsStyle.length > 0) ||
+    (slideIndex === 10 && checkInRhythm.length > 0) ||
+    (slideIndex === WIDGET_DROP_SLIDE_INDEX && widgetDropButtonEnabled) ||
     (slideIndex >= 0 &&
       slideIndex < TOTAL_SLIDES - 1 &&
-      ![0, 5, 6, 7, 9, PARTNER_NAME_SLIDE_INDEX].includes(slideIndex));
+      ![0, 6, 7, 8, 10, PARTNER_NAME_SLIDE_INDEX, WIDGET_DROP_SLIDE_INDEX].includes(slideIndex));
 
   const handleSlideNext = () => {
-    if (slideIndex === 9) {
+    if (slideIndex === 10) {
       setOnboardingData({
         situation,
         hardestPart,
@@ -467,24 +515,24 @@ export function OnboardingFlow() {
 
   /** Returns the slide content for the given index (for tap-through state-driven render). */
   function renderSlideContent(idx) {
-    if ([0, 5, 6, 7, 9].includes(idx)) {
+    if ([0, 6, 7, 8, 10].includes(idx)) {
       const q =
         idx === 0 ? QUESTION_1 :
-          idx === 5 ? QUESTION_2 :
-            idx === 6 ? QUESTION_3 :
-              idx === 7 ? QUESTION_4 :
+          idx === 6 ? QUESTION_2 :
+            idx === 7 ? QUESTION_3 :
+              idx === 8 ? QUESTION_4 :
                 QUESTION_5;
       const sel =
         idx === 0 ? situation :
-          idx === 5 ? hardestPart :
-            idx === 6 ? bringsYouHere :
-              idx === 7 ? sendMomentsStyle :
+          idx === 6 ? hardestPart :
+            idx === 7 ? bringsYouHere :
+              idx === 8 ? sendMomentsStyle :
                 checkInRhythm;
       const tog =
         idx === 0 ? toggleSituation :
-          idx === 5 ? toggleHardestPart :
-            idx === 6 ? toggleBringsYouHere :
-              idx === 7 ? toggleSendMomentsStyle :
+          idx === 6 ? toggleHardestPart :
+            idx === 7 ? toggleBringsYouHere :
+              idx === 8 ? toggleSendMomentsStyle :
                 toggleCheckInRhythm;
       return (
         <View style={[styles.slide, styles.questionSlide]}>
@@ -510,7 +558,7 @@ export function OnboardingFlow() {
           <TouchableOpacity
             style={[styles.continueBtn, !(sel.length > 0) && styles.primaryButtonDisabled]}
             onPress={() => {
-              if (idx === 9) {
+              if (idx === 10) {
                 setOnboardingData({
                   situation,
                   hardestPart,
@@ -746,6 +794,88 @@ export function OnboardingFlow() {
         </View>
       );
     }
+    if (idx === WIDGET_DROP_SLIDE_INDEX) {
+      const doveFlyX = widgetDropProgress.interpolate({
+        inputRange: [0, 0.4, 0.75, 1],
+        outputRange: [-120, 40, 68, 68],
+      });
+      const doveFlyY = widgetDropProgress.interpolate({
+        inputRange: [0, 0.4, 0.75, 1],
+        outputRange: [20, -30, -30, -30],
+      });
+      const cardCarryY = widgetDropProgress.interpolate({
+        inputRange: [0, 0.4, 0.5, 0.65, 1],
+        outputRange: [0, 0, 80, 118, 118],
+      });
+      const cardOpacity = widgetDropProgress.interpolate({
+        inputRange: [0, 0.62, 0.74, 0.84, 1],
+        outputRange: [1, 1, 0.5, 0.08, 0],
+      });
+      const widgetPhotoOpacity = widgetDropProgress.interpolate({
+        inputRange: [0.5, 0.7, 1],
+        outputRange: [0, 1, 1],
+      });
+      const doveOpacity = widgetDropProgress.interpolate({
+        inputRange: [0.62, 0.74, 0.84, 1],
+        outputRange: [1, 0.5, 0.08, 0],
+      });
+      const flyRotateStr = widgetDropWingPhase.interpolate({
+        inputRange: [-1, 1],
+        outputRange: ['-8deg', '8deg'],
+      });
+      return (
+        <View style={styles.slide}>
+          <View style={styles.widgetDropStage}>
+            <View style={styles.iphoneFrame}>
+              <View style={styles.iphoneScreen}>
+                <View style={styles.iphoneWidgetSlot}>
+                  <Animated.View style={[styles.widgetDropPhotoWrap, { opacity: widgetPhotoOpacity }]}>
+                    <Image source={WIDGET_COFFEE_IMAGE} style={styles.widgetDropPhoto} resizeMode="cover" />
+                  </Animated.View>
+                </View>
+              </View>
+            </View>
+            <Animated.View
+              style={[
+                styles.widgetDropDoveWrap,
+                {
+                  opacity: doveOpacity,
+                  transform: [
+                    { translateX: doveFlyX },
+                    { translateY: doveFlyY },
+                    { rotate: flyRotateStr },
+                  ],
+                },
+              ]}
+            >
+              <Dove
+                size={44}
+                leftWingRotation={widgetDropWingPhase}
+                rightWingRotation={widgetDropWingPhase}
+                outlineColor={colors.blushDark}
+                outlineWidth={1.2}
+                hideBeak
+              />
+              <Animated.View style={[styles.widgetDropCarryCard, { opacity: cardOpacity, transform: [{ translateY: cardCarryY }] }]}>
+                <Image source={WIDGET_COFFEE_IMAGE} style={styles.widgetDropCarryPhoto} resizeMode="cover" />
+              </Animated.View>
+            </Animated.View>
+          </View>
+          <Text style={styles.slideTitle}>...RIGHT TO YOUR PARTNER'S HOME SCREEN.</Text>
+          <Text style={styles.slideSubtitle}>Our dove delivers your latest photo straight to your partner's Duva widget—so they can see it the moment they unlock.</Text>
+          <AnimatedReanimated.View style={styles.widgetDropCtaWrap}>
+            <TouchableOpacity
+              style={[styles.primaryButton, !widgetDropButtonEnabled && styles.primaryButtonDisabled]}
+              onPress={() => goToSlide(idx + 1)}
+              disabled={!widgetDropButtonEnabled}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </AnimatedReanimated.View>
+        </View>
+      );
+    }
     if (idx === 2) {
       return (
         <View style={styles.slide}>
@@ -801,7 +931,7 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    if (idx === 8) {
+    if (idx === 9) {
       return (
         <View style={styles.slide}>
           <View style={styles.slide2Content}>
@@ -831,7 +961,7 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    if (idx === 10) {
+    if (idx === 11) {
       return (
         <View style={styles.slide}>
           <View style={styles.slide3Dashboard}>
@@ -867,7 +997,7 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    // idx === 11
+    // idx === 12 (final)
     return (
       <View style={styles.slide}>
         <View style={styles.slideCoupleSubscription}>
@@ -937,7 +1067,7 @@ export function OnboardingFlow() {
       </View>
 
       <View style={styles.carouselWrap}>
-        <LDRBackground totalSlides={TOTAL_SLIDES} currentSlideIndex={slideIndex} />
+        <LDRBackground totalSlides={TOTAL_SLIDES} currentSlideIndex={slideIndex} hideMovingElement={slideIndex === WIDGET_DROP_SLIDE_INDEX} />
         <View style={styles.slideContainer}>
           <AnimatedReanimated.View
             key={slideIndex}
@@ -1439,6 +1569,82 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 3,
+  },
+  widgetDropStage: {
+    width: '100%',
+    height: 260,
+    marginTop: 8,
+    marginBottom: 4,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iphoneFrame: {
+    width: 100,
+    height: 200,
+    borderRadius: 24,
+    padding: 7,
+    backgroundColor: '#1c1c1e',
+    ...SHADOW,
+  },
+  iphoneScreen: {
+    flex: 1,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  iphoneWidgetSlot: {
+    position: 'absolute',
+    left: 6,
+    right: 6,
+    top: 16,
+    height: 88,
+    borderRadius: 12,
+    backgroundColor: 'rgb(255, 248, 245)',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  widgetDropPhotoWrap: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  widgetDropPhoto: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  widgetDropDoveWrap: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    marginLeft: -60,
+    marginTop: -40,
+    width: 120,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  widgetDropCarryCard: {
+    position: 'absolute',
+    bottom: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderColor: colors.blushDark,
+    ...SHADOW,
+  },
+  widgetDropCarryPhoto: {
+    width: 36,
+    height: 36,
+  },
+  widgetDropCtaWrap: {
+    marginTop: 16,
+    width: '100%',
   },
   collageContainer: {
     width: '100%',
