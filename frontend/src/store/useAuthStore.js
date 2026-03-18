@@ -68,6 +68,32 @@ function normalizeReunion(reunion) {
   };
 }
 
+function extractDateOnly(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getUtcCalendarDayDiff(targetDate, nowValue = Date.now()) {
+  const targetDateOnly = extractDateOnly(targetDate);
+  if (!targetDateOnly) return null;
+
+  const target = new Date(`${targetDateOnly}T00:00:00.000Z`);
+  const now = new Date(nowValue);
+  const nowKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+  const today = new Date(`${nowKey}T00:00:00.000Z`);
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.round((target.getTime() - today.getTime()) / dayMs);
+}
+
 /** Write stats.json and calendar.json to App Group and reload widgets. Uses reunion.startDate for calendar; partner for stats.
  * statsExtras: optional { location, partnerTime, weatherTemp, weatherIcon } for Duva Stats widget. */
 async function writeWidgetData(partner, reunion, statsExtras) {
@@ -94,17 +120,14 @@ async function writeWidgetData(partner, reunion, statsExtras) {
       `${baseUri}/stats.json`,
       JSON.stringify(statsPayload)
     );
-    const startDate = reunion?.startDate ? new Date(reunion.startDate) : null;
-    const now = new Date();
-    const daysRemaining =
-      startDate && startDate > now
-        ? Math.max(0, Math.floor((startDate - now) / (24 * 60 * 60 * 1000)))
-        : null;
+    const reunionDate = extractDateOnly(reunion?.startDate);
+    const daysDiff = reunionDate ? getUtcCalendarDayDiff(reunionDate) : null;
+    const daysRemaining = daysDiff == null ? null : Math.max(0, daysDiff);
     const location =
       partner?.meetingLocation ?? partner?.location?.city ?? null;
     const partnerFirstName =
       partner?.firstName ?? partner?.name?.trim().split(/\s+/)[0] ?? null;
-    const calendarPayload = { daysRemaining, location, partnerFirstName };
+    const calendarPayload = { daysRemaining, reunionDate, location, partnerFirstName };
     await FileSystem.writeAsStringAsync(
       `${baseUri}/calendar.json`,
       JSON.stringify(calendarPayload)

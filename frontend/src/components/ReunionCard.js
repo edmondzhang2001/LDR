@@ -4,7 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from './Card';
 import { colors, glassTextShadow, trayTextShadow, trayTextColor } from '../theme/colors';
-import { getCountdown, formatCountdown } from '../utils/countdown';
+import { getCountdown, formatCountdown, getDayDifferenceFromToday, getVisitDay } from '../utils/countdown';
 
 const RADIUS = 24;
 
@@ -20,7 +20,8 @@ export function ReunionCard({ reunion, saveReunion, endReunion, onSetWidgetPhoto
 
   const hasReunion = reunion?.startDate != null;
   const startDate = hasReunion ? new Date(reunion.startDate) : null;
-  const isTogether = startDate != null && startDate.getTime() <= Date.now();
+  const daysUntilReunion = startDate ? getDayDifferenceFromToday(startDate) : null;
+  const isTogether = startDate != null && daysUntilReunion != null && daysUntilReunion <= 0;
 
   useEffect(() => {
     if (!startDate) {
@@ -65,10 +66,7 @@ export function ReunionCard({ reunion, saveReunion, endReunion, onSetWidgetPhoto
     setShowPicker(false);
   };
 
-  const dayOfVisit =
-    startDate && isTogether
-      ? Math.floor((Date.now() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1
-      : 0;
+  const dayOfVisit = startDate && isTogether ? getVisitDay(startDate) : 0;
   const ts = (s) =>
     inTray ? [{ ...s, color: trayTextColor }, trayTextShadow] : glass ? [s, glassTextShadow] : s;
   const iconColor = inTray ? trayTextColor : colors.skyDark;

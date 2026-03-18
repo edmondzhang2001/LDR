@@ -96,9 +96,23 @@ export async function unlinkPartner() {
 
 /** PUT /api/reunion — set reunion dates for both users. */
 export async function saveReunion(startDate, endDate) {
+  const toDateOnly = (value) => {
+    if (typeof value === 'string') {
+      const iso = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+      return value;
+    }
+    const d = new Date(value);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const { data } = await api.put('/reunion', {
-    startDate: typeof startDate === 'string' ? startDate : new Date(startDate).toISOString(),
-    endDate: endDate == null ? null : (typeof endDate === 'string' ? endDate : new Date(endDate).toISOString()),
+    // Save as date-only to avoid timezone shifts between partners.
+    startDate: toDateOnly(startDate),
+    endDate: endDate == null ? null : toDateOnly(endDate),
   });
   return data;
 }

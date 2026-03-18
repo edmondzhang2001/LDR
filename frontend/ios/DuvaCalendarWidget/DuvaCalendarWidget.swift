@@ -8,7 +8,8 @@ private let colorCream = Color(red: 255/255, green: 248/255, blue: 245/255)     
 private let colorNoPhotoBackground = Color(red: 107/255, green: 90/255, blue: 94/255)  // #6B5A5E
 
 struct CalendarData: Codable {
-    let daysRemaining: Int
+    let daysRemaining: Int?
+    let reunionDate: String?
     let partnerFirstName: String?
     let partnerName: String?
 }
@@ -32,7 +33,8 @@ struct CalendarProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<CalendarEntry>) -> ()) {
-        let timeline = Timeline(entries: [getLatestEntry()], policy: .never)
+        let nextRefresh = nextUtcMidnight(after: Date())
+        let timeline = Timeline(entries: [getLatestEntry()], policy: .after(nextRefresh))
         completion(timeline)
     }
     
@@ -45,7 +47,12 @@ struct CalendarProvider: TimelineProvider {
         var partnerName: String? = nil
         if let data = try? Data(contentsOf: sharedURL.appendingPathComponent("calendar.json")),
            let decoded = try? JSONDecoder().decode(CalendarData.self, from: data) {
-            daysRemaining = decoded.daysRemaining
+            if let reunionDate = decoded.reunionDate, let computedDays = computeDaysRemaining(from: reunionDate) {
+                daysRemaining = max(0, computedDays)
+            } else if let storedDays = decoded.daysRemaining {
+                // Backward compatibility with older payloads that only stored a number.
+                daysRemaining = max(0, storedDays)
+            }
             partnerName = decoded.partnerFirstName ?? decoded.partnerName
         }
         let imageURL = sharedURL.appendingPathComponent("calendar_widget_photo.jpg")
@@ -70,6 +77,38 @@ struct CalendarProvider: TimelineProvider {
 
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else { return nil }
         return UIImage(cgImage: cgImage)
+    }
+
+    private func computeDaysRemaining(from reunionDate: String) -> Int? {
+        guard let targetDate = parseDateOnly(reunionDate) else { return nil }
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        let startToday = utcCalendar.startOfDay(for: Date())
+        let startTarget = utcCalendar.startOfDay(for: targetDate)
+        return utcCalendar.dateComponents([.day], from: startToday, to: startTarget).day
+    }
+
+    private func parseDateOnly(_ value: String) -> Date? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 10 else { return nil }
+        let datePrefix = String(trimmed.prefix(10))
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: datePrefix)
+    }
+
+    private func nextUtcMidnight(after date: Date) -> Date {
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        let startOfToday = utcCalendar.startOfDay(for: date)
+        guard let tomorrow = utcCalendar.date(byAdding: .day, value: 1, to: startOfToday),
+              let refreshTime = utcCalendar.date(byAdding: .minute, value: 1, to: tomorrow) else {
+            return date.addingTimeInterval(60 * 60)
+        }
+        return refreshTime
     }
 }
 

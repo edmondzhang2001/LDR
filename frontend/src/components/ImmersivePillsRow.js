@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GlassPill } from './GlassPill';
 import { colors } from '../theme/colors';
 import { fetchWeatherAt, weatherIconToIonicons } from '../utils/weather';
-import { getCountdown, formatCountdown } from '../utils/countdown';
+import { getCountdown, formatCountdown, getDayDifferenceFromToday } from '../utils/countdown';
 
 const PILL_TEXT = { fontSize: 13, fontWeight: '600', color: colors.text };
 
@@ -41,7 +41,8 @@ export function ImmersivePillsRow({ partner, myLocation, reunion }) {
 
   const hasReunion = reunion?.startDate != null;
   const startDate = hasReunion ? new Date(reunion.startDate) : null;
-  const isTogether = startDate != null && startDate.getTime() <= Date.now();
+  const daysUntilReunion = startDate ? getDayDifferenceFromToday(startDate) : null;
+  const isTogether = startDate != null && daysUntilReunion != null && daysUntilReunion <= 0;
   const countdown = startDate && !isTogether ? getCountdown(startDate) : null;
   const reunionLabel = isTogether ? 'Together!' : countdown ? formatCountdown(countdown) : '—';
 
