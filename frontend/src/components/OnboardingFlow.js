@@ -18,6 +18,8 @@ import AnimatedReanimated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withRepeat,
+  cancelAnimation,
   Easing,
   FadeIn,
   FadeOut,
@@ -26,7 +28,7 @@ import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { colors, glassTextShadow } from '../theme/colors';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { LDRBackground } from './LDRBackground';
 import { Dove } from './Dove';
@@ -108,13 +110,15 @@ const FEATURE_TITLES = [
   'BRIDGE THE DISTANCE.',
   'OUR MAGIC.',
   'ONE SUBSCRIPTION. BOTH OF YOU.',
+  'COUNT DOWN ON YOUR HOME SCREEN.',
 ];
-const TOTAL_SLIDES = 13;
+const TOTAL_SLIDES = 14;
 const PHOTO_DELIVERY_SLIDE_INDEX = 3;
 const WIDGET_DROP_SLIDE_INDEX = 4;
+const CALENDAR_SLIDE_INDEX = 5;
 const PARTNER_NAME_SLIDE_INDEX = 1;
-const SCIENCE_SLIDE_INDEX = 5;
-const FEATURE_SLIDE_INDICES = [2, 9, 11];
+const SCIENCE_SLIDE_INDEX = 6;
+const FEATURE_SLIDE_INDICES = [2, CALENDAR_SLIDE_INDEX, 10, 12];
 const FINAL_SLIDE_INDEX = TOTAL_SLIDES - 1;
 const WIDGET_DROP_ANIMATION_DURATION_MS = 4200;
 const SCIENCE_ANIMATION = {
@@ -131,6 +135,120 @@ const SCIENCE_ANIMATION = {
 const SEGMENT_FILL_DURATION = 280;
 const DELIVERY_DOVE_SIZE = 74;
 const DELIVERY_WOBBLE_DEG = 5;
+
+/** Subtle scale pulse for the calendar widget countdown number. */
+function CalendarCountdownPulse({ children }) {
+  const scale = useSharedValue(1);
+  useEffect(() => {
+    scale.value = withRepeat(
+      withTiming(1.08, { duration: 1100, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+    return () => cancelAnimation(scale);
+  }, [scale]);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  return (
+    <AnimatedReanimated.View style={[styles.calendarWidgetNumberWrap, animatedStyle]}>
+      {children}
+    </AnimatedReanimated.View>
+  );
+}
+
+function ConfettiBurst({ visible, onDone }) {
+  const [burstKey, setBurstKey] = useState(0);
+
+  useEffect(() => {
+    if (!visible) return undefined;
+    setBurstKey((k) => k + 1);
+    const t = setTimeout(() => onDone?.(), 1850);
+    return () => clearTimeout(t);
+  }, [visible, onDone]);
+
+  if (!visible) return null;
+
+  // Re-keying forces particles to re-mount and re-run animations.
+  return (
+    <View key={burstKey} pointerEvents="none" style={styles.confettiOverlay}>
+      {Array.from({ length: 18 }, (_, i) => (
+        <ConfettiParticle key={`L-${burstKey}-${i}`} side="left" index={i} />
+      ))}
+      {Array.from({ length: 18 }, (_, i) => (
+        <ConfettiParticle key={`R-${burstKey}-${i}`} side="right" index={i} />
+      ))}
+    </View>
+  );
+}
+
+function ConfettiParticle({ side, index }) {
+  const t = useSharedValue(0);
+
+  // Deterministic-ish randomness per mount.
+  const seed = (index + 1) * (side === 'left' ? 13 : 29);
+  const rand = (n) => {
+    const x = Math.sin(seed * 999 + n * 97) * 10000;
+    return x - Math.floor(x);
+  };
+
+  const size = 6 + Math.round(rand(1) * 6);
+  const startY = 40 + rand(2) * (SCREEN_HEIGHT * 0.55);
+  const endY = startY + 140 + rand(3) * 200;
+  const startX = side === 'left' ? -20 - rand(4) * 40 : SCREEN_WIDTH + 20 + rand(4) * 40;
+  const endXBase = SCREEN_WIDTH * (0.28 + rand(5) * 0.28);
+  const endX = side === 'left' ? endXBase : SCREEN_WIDTH - endXBase;
+  const rotateBase = -25 + rand(6) * 50;
+  const spin = (rand(7) > 0.5 ? 1 : -1) * (160 + rand(8) * 220);
+  const delay = Math.round(rand(9) * 320);
+  const duration = 1200 + Math.round(rand(10) * 480);
+  const colorsPool = [colors.blushDark, colors.skyDark, colors.blush, '#F7C59F', '#B8E3D4', '#D4C5F9'];
+  const color = colorsPool[Math.floor(rand(11) * colorsPool.length)];
+
+  useEffect(() => {
+    t.value = 0;
+    t.value = withTiming(1, {
+      duration,
+      easing: Easing.out(Easing.cubic),
+    }, () => {
+      // noop
+    });
+    // Apply delay by starting from 0 and jumping after delay (keeps everything on UI thread).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const p = t.value;
+    const x = startX + (endX - startX) * p;
+    const y = startY + (endY - startY) * p;
+    const r = rotateBase + spin * p;
+    const opacity = p < 0.75 ? 1 : 1 - (p - 0.75) / 0.25;
+    const scale = 0.85 + 0.25 * Math.sin(p * Math.PI);
+    return {
+      opacity,
+      transform: [{ translateX: x }, { translateY: y }, { rotate: `${r}deg` }, { scale }],
+    };
+  });
+
+  // Manual delay using JS timeout (keeps component tiny; only runs at burst time).
+  useEffect(() => {
+    const to = setTimeout(() => {
+      t.value = 0;
+      t.value = withTiming(1, { duration, easing: Easing.out(Easing.cubic) });
+    }, delay);
+    return () => clearTimeout(to);
+  }, [delay, duration, t]);
+
+  return (
+    <AnimatedReanimated.View
+      style={[
+        styles.confettiPiece,
+        { width: size, height: size * (1.6 + rand(12) * 0.9), backgroundColor: color },
+        animatedStyle,
+      ]}
+    />
+  );
+}
 
 /** Premium segmented progress bar: smooth left-to-right fill per segment (Reanimated). */
 function SegmentedProgressBar({ segments, activeIndex }) {
@@ -201,6 +319,9 @@ export function OnboardingFlow() {
   const [scienceInsightVisible, setScienceInsightVisible] = useState(false);
   const [stayPctDisplay, setStayPctDisplay] = useState(0);
   const [widgetDropButtonEnabled, setWidgetDropButtonEnabled] = useState(false);
+  const [calendarCountdownDisplay, setCalendarCountdownDisplay] = useState(15);
+  const [calendarConfettiVisible, setCalendarConfettiVisible] = useState(false);
+  const [calendarButtonEnabled, setCalendarButtonEnabled] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -433,6 +554,35 @@ export function OnboardingFlow() {
     };
   }, [slideIndex, widgetDropProgress, widgetDropWingPhase]);
 
+  useEffect(() => {
+    if (slideIndex !== CALENDAR_SLIDE_INDEX) {
+      setCalendarCountdownDisplay(15);
+      setCalendarConfettiVisible(false);
+      setCalendarButtonEnabled(false);
+      return undefined;
+    }
+
+    setCalendarCountdownDisplay(8);
+    setCalendarConfettiVisible(false);
+    setCalendarButtonEnabled(false);
+
+    let current = 8;
+    const interval = setInterval(() => {
+      current -= 1;
+      if (current <= 0) {
+        current = 0;
+        setCalendarCountdownDisplay(0);
+        setCalendarConfettiVisible(true);
+        setCalendarButtonEnabled(true);
+        clearInterval(interval);
+        return;
+      }
+      setCalendarCountdownDisplay(current);
+    }, 300);
+
+    return () => clearInterval(interval);
+  }, [slideIndex]);
+
   const handleGetStarted = () => setPhase('slides');
   const handleCreateAccount = () => router.replace('/auth');
   const showCTAs = phase === 'slides' && slideIndex === FINAL_SLIDE_INDEX;
@@ -447,20 +597,21 @@ export function OnboardingFlow() {
     else goToSlide(slideIndex - 1);
   };
 
-  /** Right-tap advance: allowed unless we're on a question slide with no selection or widget-drop (unskippable). */
+  /** Right-tap advance: allowed unless we're on a question slide with no selection or widget-drop/calendar (unskippable until done). */
   const canAdvance =
     (slideIndex === 0 && situation.length > 0) ||
-    (slideIndex === 6 && hardestPart.length > 0) ||
-    (slideIndex === 7 && bringsYouHere.length > 0) ||
-    (slideIndex === 8 && sendMomentsStyle.length > 0) ||
-    (slideIndex === 10 && checkInRhythm.length > 0) ||
+    (slideIndex === 7 && hardestPart.length > 0) ||
+    (slideIndex === 8 && bringsYouHere.length > 0) ||
+    (slideIndex === 9 && sendMomentsStyle.length > 0) ||
+    (slideIndex === 11 && checkInRhythm.length > 0) ||
     (slideIndex === WIDGET_DROP_SLIDE_INDEX && widgetDropButtonEnabled) ||
+    (slideIndex === CALENDAR_SLIDE_INDEX && calendarButtonEnabled) ||
     (slideIndex >= 0 &&
       slideIndex < TOTAL_SLIDES - 1 &&
-      ![0, 6, 7, 8, 10, PARTNER_NAME_SLIDE_INDEX, WIDGET_DROP_SLIDE_INDEX].includes(slideIndex));
+      ![0, 7, 8, 9, 11, PARTNER_NAME_SLIDE_INDEX, WIDGET_DROP_SLIDE_INDEX, CALENDAR_SLIDE_INDEX].includes(slideIndex));
 
   const handleSlideNext = () => {
-    if (slideIndex === 10) {
+    if (slideIndex === 11) {
       setOnboardingData({
         situation,
         hardestPart,
@@ -515,24 +666,24 @@ export function OnboardingFlow() {
 
   /** Returns the slide content for the given index (for tap-through state-driven render). */
   function renderSlideContent(idx) {
-    if ([0, 6, 7, 8, 10].includes(idx)) {
+    if ([0, 7, 8, 9, 11].includes(idx)) {
       const q =
         idx === 0 ? QUESTION_1 :
-          idx === 6 ? QUESTION_2 :
-            idx === 7 ? QUESTION_3 :
-              idx === 8 ? QUESTION_4 :
+          idx === 7 ? QUESTION_2 :
+            idx === 8 ? QUESTION_3 :
+              idx === 9 ? QUESTION_4 :
                 QUESTION_5;
       const sel =
         idx === 0 ? situation :
-          idx === 6 ? hardestPart :
-            idx === 7 ? bringsYouHere :
-              idx === 8 ? sendMomentsStyle :
+          idx === 7 ? hardestPart :
+            idx === 8 ? bringsYouHere :
+              idx === 9 ? sendMomentsStyle :
                 checkInRhythm;
       const tog =
         idx === 0 ? toggleSituation :
-          idx === 6 ? toggleHardestPart :
-            idx === 7 ? toggleBringsYouHere :
-              idx === 8 ? toggleSendMomentsStyle :
+          idx === 7 ? toggleHardestPart :
+            idx === 8 ? toggleBringsYouHere :
+              idx === 9 ? toggleSendMomentsStyle :
                 toggleCheckInRhythm;
       return (
         <View style={[styles.slide, styles.questionSlide]}>
@@ -558,7 +709,7 @@ export function OnboardingFlow() {
           <TouchableOpacity
             style={[styles.continueBtn, !(sel.length > 0) && styles.primaryButtonDisabled]}
             onPress={() => {
-              if (idx === 10) {
+              if (idx === 11) {
                 setOnboardingData({
                   situation,
                   hardestPart,
@@ -876,6 +1027,70 @@ export function OnboardingFlow() {
         </View>
       );
     }
+    if (idx === CALENDAR_SLIDE_INDEX) {
+      return (
+        <View style={styles.slide}>
+          <View style={styles.calendarSlideStage}>
+            <View style={[styles.iphoneFrame, styles.calendarIphoneFrame]}>
+              <View style={[styles.iphoneScreen, styles.calendarIphoneScreen]}>
+                <View style={[styles.calendarWidgetSlot, styles.calendarWidgetSlotLarge]}>
+                  <AnimatedReanimated.View
+                    entering={FadeIn.delay(200).duration(400).withInitialValues({ opacity: 0, transform: [{ scale: 0.92 }] })}
+                    style={StyleSheet.absoluteFill}
+                  >
+                    <Image source={WIDGET_COFFEE_IMAGE} style={styles.calendarWidgetBg} resizeMode="cover" />
+                    <View style={styles.calendarWidgetOverlay} />
+                  </AnimatedReanimated.View>
+                  <AnimatedReanimated.View
+                    entering={FadeIn.delay(500).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}
+                    style={styles.calendarWidgetContent}
+                  >
+                    <View style={styles.calendarWidgetLabelWrap}>
+                      <Text style={[styles.calendarWidgetLabel, styles.calendarWidgetLabelLarge]}>SEEING THEM IN</Text>
+                    </View>
+                    <AnimatedReanimated.View
+                      entering={FadeIn.delay(700).duration(300).withInitialValues({ opacity: 0, transform: [{ scale: 0.6 }] })}
+                    >
+                      <CalendarCountdownPulse>
+                        <Text key={calendarCountdownDisplay} style={[styles.calendarWidgetNumber, styles.calendarWidgetNumberLarge]}>
+                          {calendarCountdownDisplay}
+                        </Text>
+                      </CalendarCountdownPulse>
+                    </AnimatedReanimated.View>
+                    <Text style={[styles.calendarWidgetDays, styles.calendarWidgetDaysLarge]}>DAYS</Text>
+                  </AnimatedReanimated.View>
+                </View>
+              </View>
+            </View>
+          </View>
+          <View style={styles.calendarSlideTextBlock}>
+            <AnimatedReanimated.View
+              entering={FadeIn.delay(400).duration(1200).withInitialValues({ opacity: 0 })}
+              style={styles.calendarSlideTitleWrap}
+            >
+              <Text style={[styles.slideTitle, styles.calendarSlideTitle]}>{FEATURE_TITLES[5]}</Text>
+              <Text style={[styles.slideSubtitle, styles.calendarSlideSubtitle]}>
+                Add the Duva Countdown widget to see days until you're together.
+              </Text>
+            </AnimatedReanimated.View>
+            <View style={styles.calendarSlideButtonSlot}>
+              {calendarButtonEnabled && (
+                <AnimatedReanimated.View entering={FadeIn.duration(400)} style={styles.calendarSlideButtonWrap}>
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={() => goToSlide(idx + 1)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.primaryButtonText}>Continue</Text>
+                  </TouchableOpacity>
+                </AnimatedReanimated.View>
+              )}
+            </View>
+          </View>
+          <ConfettiBurst visible={calendarConfettiVisible} onDone={() => setCalendarConfettiVisible(false)} />
+        </View>
+      );
+    }
     if (idx === 2) {
       return (
         <View style={styles.slide}>
@@ -931,7 +1146,7 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    if (idx === 9) {
+    if (idx === 10) {
       return (
         <View style={styles.slide}>
           <View style={styles.slide2Content}>
@@ -961,7 +1176,7 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    if (idx === 11) {
+    if (idx === 12) {
       return (
         <View style={styles.slide}>
           <View style={styles.slide3Dashboard}>
@@ -997,7 +1212,7 @@ export function OnboardingFlow() {
         </View>
       );
     }
-    // idx === 12 (final)
+    // idx === 13 (final)
     return (
       <View style={styles.slide}>
         <View style={styles.slideCoupleSubscription}>
@@ -1415,6 +1630,18 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 8,
   },
+  calendarSlideTitle: {
+    fontSize: 30,
+    lineHeight: 34,
+    marginTop: 0,
+    marginBottom: 10,
+    letterSpacing: 0.6,
+  },
+  calendarSlideSubtitle: {
+    fontSize: 19,
+    lineHeight: 26,
+    paddingHorizontal: 10,
+  },
   scienceSlide: {
     backgroundColor: '#FFF8F1',
     alignItems: 'stretch',
@@ -1645,6 +1872,131 @@ const styles = StyleSheet.create({
   widgetDropCtaWrap: {
     marginTop: 16,
     width: '100%',
+  },
+  calendarSlideStage: {
+    width: '100%',
+    height: 340,
+    marginTop: 8,
+    marginBottom: 4,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarIphoneFrame: {
+    width: 152,
+    height: 304,
+    padding: 10,
+    borderRadius: 32,
+  },
+  calendarIphoneScreen: {
+    borderRadius: 20,
+  },
+  calendarWidgetSlot: {
+    position: 'absolute',
+    left: 6,
+    right: 6,
+    top: 16,
+    height: 88,
+    borderRadius: 12,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarWidgetSlotLarge: {
+    left: 10,
+    right: 10,
+    top: 24,
+    height: 132,
+    borderRadius: 16,
+  },
+  calendarSlideTextBlock: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 28,
+    width: '100%',
+  },
+  calendarSlideTitleWrap: {
+    width: '100%',
+  },
+  calendarSlideButtonSlot: {
+    minHeight: 72,
+    marginTop: 8,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  calendarSlideButtonWrap: {
+    width: '100%',
+  },
+  calendarWidgetBg: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  calendarWidgetOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  calendarWidgetContent: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarWidgetLabelWrap: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+    paddingHorizontal: 4,
+  },
+  calendarWidgetLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.white,
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    ...glassTextShadow,
+  },
+  calendarWidgetLabelLarge: {
+    fontSize: 14,
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
+  calendarWidgetNumberWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarWidgetNumber: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: colors.white,
+    ...glassTextShadow,
+  },
+  calendarWidgetNumberLarge: {
+    fontSize: 46,
+  },
+  calendarWidgetDays: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.white,
+    letterSpacing: 1,
+    ...glassTextShadow,
+  },
+  calendarWidgetDaysLarge: {
+    fontSize: 20,
+    letterSpacing: 1.5,
+  },
+  confettiOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 50,
+  },
+  confettiPiece: {
+    position: 'absolute',
+    borderRadius: 3,
+    opacity: 0,
   },
   collageContainer: {
     width: '100%',
