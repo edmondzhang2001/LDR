@@ -137,6 +137,7 @@ router.get('/me', requireAuth, async (req, res) => {
             ? { emoji: user.mood.emoji || undefined, text: user.mood.text || undefined }
             : undefined,
         hasPremiumAccess,
+        createdAt: user.createdAt ? user.createdAt.toISOString() : undefined,
       },
     });
   } catch (err) {
@@ -227,6 +228,7 @@ router.post('/oauth', authLoginLimiter, async (req, res) => {
         email: user.email || undefined,
         ...getUserNameFields(user),
         partnerId: user.partnerId ?? null,
+        createdAt: user.createdAt ? user.createdAt.toISOString() : undefined,
       },
     });
   } catch (err) {

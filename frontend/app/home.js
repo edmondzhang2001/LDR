@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, AppState, ActivityIndicator, Alert, Modal, TextInput, Image, RefreshControl, KeyboardAvoidingView, Platform, ActionSheetIOS } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import * as Location from 'expo-location';
 import * as Battery from 'expo-battery';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,6 +22,9 @@ import { fetchWeatherAt, weatherIconToIonicons } from '../src/utils/weather';
 import { formatRelativeTime } from '../src/utils/relativeTime';
 import { usePartnerTime } from '../src/hooks/usePartnerTime';
 import { calculateDistance } from '../src/utils/distance';
+import { WidgetSetupCoachModal, WIDGET_COACH_NEW_ACCOUNT_MAX_MS } from '../src/components/WidgetSetupCoachModal';
+
+const widgetCoachStorageKey = (userId) => (userId ? `ldr_wg_coach_v1_${userId}` : null);
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -37,6 +41,7 @@ export default function HomeScreen() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [widgetPhotoPreviewUri, setWidgetPhotoPreviewUri] = useState(null);
   const [widgetPhotoSyncing, setWidgetPhotoSyncing] = useState(false);
+  const [widgetCoachVisible, setWidgetCoachVisible] = useState(false);
   const CAPTION_MAX = 60;
 
   const lastLocationFetch = useRef(0);
@@ -206,6 +211,41 @@ export default function HomeScreen() {
   useEffect(() => {
     refreshMyLocation();
   }, [refreshMyLocation]);
+
+  // One-time widget setup coach for new accounts (iOS only), after they reach Home with a partner.
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    if (!user?.id || user?.createdAt == null || partnerId == null) return;
+
+    const created = new Date(user.createdAt).getTime();
+    if (Number.isNaN(created)) return;
+    if (Date.now() - created > WIDGET_COACH_NEW_ACCOUNT_MAX_MS) return;
+
+    const key = widgetCoachStorageKey(user.id);
+    if (!key) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const dismissed = await SecureStore.getItemAsync(key);
+        if (cancelled || dismissed === '1') return;
+        setWidgetCoachVisible(true);
+      } catch (_) {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.createdAt, partnerId]);
+
+  const dismissWidgetCoach = useCallback(async () => {
+    setWidgetCoachVisible(false);
+    const key = user?.id ? widgetCoachStorageKey(user.id) : null;
+    if (key) {
+      try {
+        await SecureStore.setItemAsync(key, '1');
+      } catch (_) {}
+    }
+  }, [user?.id]);
 
   // Sync battery level on mount and when it changes while app is open
   useEffect(() => {
@@ -485,6 +525,8 @@ export default function HomeScreen() {
         onSave={(emoji, text) => updateMood(emoji ?? '', text ?? '')}
         onClose={() => setMoodModalVisible(false)}
       />
+
+      <WidgetSetupCoachModal visible={widgetCoachVisible} onDismiss={dismissWidgetCoach} />
 
       <Modal visible={!!widgetPhotoPreviewUri} transparent animationType="slide">
         <Pressable style={styles.uploadModalBackdrop} onPress={() => setWidgetPhotoPreviewUri(null)}>

@@ -49,6 +49,7 @@ function normalizeUser(dataUser) {
     lastName: lastName ?? undefined,
     name: buildFullName(firstName, lastName) ?? dataUser.name ?? undefined,
     partnerId: dataUser.partnerId ?? null,
+    createdAt: typeof dataUser.createdAt === 'string' ? dataUser.createdAt : undefined,
     hasPremiumAccess: Boolean(dataUser.hasPremiumAccess),
     reunion: dataUser.reunion ?? null,
     photos: Array.isArray(dataUser.photos) ? dataUser.photos : [],

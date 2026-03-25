@@ -556,17 +556,17 @@ export function OnboardingFlow() {
 
   useEffect(() => {
     if (slideIndex !== CALENDAR_SLIDE_INDEX) {
-      setCalendarCountdownDisplay(15);
+      setCalendarCountdownDisplay(10);
       setCalendarConfettiVisible(false);
       setCalendarButtonEnabled(false);
       return undefined;
     }
 
-    setCalendarCountdownDisplay(8);
+    setCalendarCountdownDisplay(10);
     setCalendarConfettiVisible(false);
     setCalendarButtonEnabled(false);
 
-    let current = 8;
+    let current = 10;
     const interval = setInterval(() => {
       current -= 1;
       if (current <= 0) {
@@ -946,29 +946,31 @@ export function OnboardingFlow() {
       );
     }
     if (idx === WIDGET_DROP_SLIDE_INDEX) {
+      // Dove flies in from left, above the phone, then hovers above it and drops the photo
       const doveFlyX = widgetDropProgress.interpolate({
-        inputRange: [0, 0.4, 0.75, 1],
-        outputRange: [-120, 40, 68, 68],
+        inputRange: [0, 0.35, 0.5, 0.75, 1],
+        outputRange: [-100, -8, 0, 0, 20],
       });
       const doveFlyY = widgetDropProgress.interpolate({
-        inputRange: [0, 0.4, 0.75, 1],
-        outputRange: [20, -30, -30, -30],
+        inputRange: [0, 0.35, 0.5, 0.6, 0.85, 1],
+        outputRange: [-140, -100, -100, -100, -130, -150],
       });
+      // Card is held by dove then drops down onto the widget slot
       const cardCarryY = widgetDropProgress.interpolate({
-        inputRange: [0, 0.4, 0.5, 0.65, 1],
-        outputRange: [0, 0, 80, 118, 118],
+        inputRange: [0, 0.5, 0.58, 0.78, 1],
+        outputRange: [0, 0, 0, 42, 42],
       });
       const cardOpacity = widgetDropProgress.interpolate({
-        inputRange: [0, 0.62, 0.74, 0.84, 1],
-        outputRange: [1, 1, 0.5, 0.08, 0],
+        inputRange: [0, 0.72, 0.8, 0.9, 1],
+        outputRange: [1, 1, 0.6, 0.05, 0],
       });
       const widgetPhotoOpacity = widgetDropProgress.interpolate({
-        inputRange: [0.5, 0.7, 1],
+        inputRange: [0.65, 0.82, 1],
         outputRange: [0, 1, 1],
       });
       const doveOpacity = widgetDropProgress.interpolate({
-        inputRange: [0.62, 0.74, 0.84, 1],
-        outputRange: [1, 0.5, 0.08, 0],
+        inputRange: [0.7, 0.85, 1],
+        outputRange: [1, 0.4, 0],
       });
       const flyRotateStr = widgetDropWingPhase.interpolate({
         inputRange: [-1, 1],
@@ -1267,6 +1269,9 @@ export function OnboardingFlow() {
           <TouchableOpacity style={styles.primaryButton} onPress={handleGetStarted} activeOpacity={0.85}>
             <Text style={styles.primaryButtonText}>Get Started</Text>
           </TouchableOpacity>
+          <Pressable onPress={handleCreateAccount} style={styles.secondaryLink} accessibilityRole="link">
+            <Text style={styles.secondaryLinkText}>Already have an account? Sign in</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );

@@ -88,6 +88,7 @@ exports.appleLogin = async (req, res) => {
         lastName: lastNameResolved || undefined,
         name: [firstNameResolved, lastNameResolved].filter(Boolean).join(' ') || user.name || undefined,
         partnerId: user.partnerId ?? null,
+        createdAt: user.createdAt ? user.createdAt.toISOString() : undefined,
       },
     });
   } catch (err) {
