@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const OnboardingSession = require('../models/OnboardingSession');
 
 const router = express.Router();
 
@@ -28,6 +29,22 @@ function resolveAppUserId(event) {
   ].filter(Boolean);
   const id = candidates.find((c) => mongoose.Types.ObjectId.isValid(String(c)));
   return id ? String(id) : null;
+}
+
+async function updateLatestOnboardingSessionFromWebhook({ userId, converted, sourceEvent }) {
+  if (!userId) return;
+  await OnboardingSession.findOneAndUpdate(
+    { userId },
+    {
+      $set: {
+        subscriptionConverted: converted,
+        subscriptionCheckedAt: new Date(),
+        subscriptionSource: 'revenuecat_webhook',
+        paywallResult: sourceEvent || null,
+      },
+    },
+    { sort: { createdAt: -1 } }
+  );
 }
 
 /**
@@ -74,12 +91,22 @@ router.post('/revenuecat', requireWebhookAuth, async (req, res) => {
       if (purchaser?.partnerId) {
         await User.findByIdAndUpdate(purchaser.partnerId, { isPremium: true });
       }
+      await updateLatestOnboardingSessionFromWebhook({
+        userId: appUserId,
+        converted: true,
+        sourceEvent: type,
+      });
     } else if (revokeAccess) {
       await User.findByIdAndUpdate(appUserId, { isPremium: false });
       const purchaser = await User.findById(appUserId).select('partnerId').lean();
       if (purchaser?.partnerId) {
         await User.findByIdAndUpdate(purchaser.partnerId, { isPremium: false });
       }
+      await updateLatestOnboardingSessionFromWebhook({
+        userId: appUserId,
+        converted: false,
+        sourceEvent: type,
+      });
       console.log('[RevenueCat webhook] Set isPremium=false for user', appUserId, 'event:', type);
     }
 

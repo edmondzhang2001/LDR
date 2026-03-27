@@ -48,7 +48,6 @@ export default function AuthScreen() {
   const signInWithOAuth = useAuthStore((s) => s.signInWithOAuth);
   const refreshUser = useAuthStore((s) => s.refreshUser);
   const [loading, setLoading] = useState(null);
-  const [error, setError] = useState('');
   const [appleAvailable, setAppleAvailable] = useState(false);
 
   useEffect(() => {
@@ -58,7 +57,6 @@ export default function AuthScreen() {
   }, []);
 
   const handleAppleSignIn = async () => {
-    setError('');
     setLoading('apple');
     try {
       await signInWithApple();
@@ -74,22 +72,13 @@ export default function AuthScreen() {
       if (err.code === 'ERR_REQUEST_CANCELED') {
         return;
       }
-      const message =
-        err.response?.data?.error ||
-        err.message ||
-        'Sign in with Apple failed';
-      setError(message);
     } finally {
       setLoading(null);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setError('');
     if (!googleConfigured) {
-      setError(
-        'Google Sign-In not configured. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID and EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in app config.'
-      );
       return;
     }
     setLoading('google');
@@ -122,11 +111,6 @@ export default function AuthScreen() {
       if (err.code === statusCodes.SIGN_IN_CANCELLED) {
         return;
       }
-      const message =
-        err.response?.data?.error ||
-        err.message ||
-        'Sign in with Google failed';
-      setError(message);
     } finally {
       setLoading(null);
     }
@@ -172,7 +156,6 @@ export default function AuthScreen() {
         </TouchableOpacity>
       </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
 }
@@ -247,12 +230,5 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.6,
-  },
-  error: {
-    fontSize: 14,
-    color: colors.blushDark,
-    textAlign: 'center',
-    marginTop: 24,
-    paddingHorizontal: 16,
   },
 });

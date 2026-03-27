@@ -13,6 +13,7 @@ import {
   Easing as RNEasing,
   Keyboard,
   Platform,
+  AppState,
 } from 'react-native';
 import AnimatedReanimated, {
   useSharedValue,
@@ -28,8 +29,11 @@ import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { colors, glassTextShadow } from '../theme/colors';
 import { useOnboardingStore } from '../store/useOnboardingStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { sendAnonymousOnboardingEvents, sendOnboardingEvents } from '../lib/api';
 import { LDRBackground } from './LDRBackground';
 import { Dove } from './Dove';
 
@@ -121,6 +125,7 @@ const SCIENCE_SLIDE_INDEX = 6;
 const FEATURE_SLIDE_INDICES = [2, CALENDAR_SLIDE_INDEX, 10, 12];
 const FINAL_SLIDE_INDEX = TOTAL_SLIDES - 1;
 const WIDGET_DROP_ANIMATION_DURATION_MS = 4200;
+const PHOTO_DELIVERY_BUTTON_DELAY_MS = 1400;
 const SCIENCE_ANIMATION = {
   titleDelay: 0,
   sentence1Delay: 2200,
@@ -131,6 +136,7 @@ const SCIENCE_ANIMATION = {
   insightRevealDelay: 11200,
   buttonDelay: 15500,
 };
+const APP_VERSION = Constants.expoConfig?.version || 'unknown';
 
 const SEGMENT_FILL_DURATION = 280;
 const DELIVERY_DOVE_SIZE = 74;
@@ -250,63 +256,52 @@ function ConfettiParticle({ side, index }) {
   );
 }
 
-/** Premium segmented progress bar: smooth left-to-right fill per segment (Reanimated). */
-function SegmentedProgressBar({ segments, activeIndex }) {
-  const segmentFill = useSharedValue(0);
-  const activeIndexRef = useSharedValue(0);
-  const prevIndexRef = useRef(activeIndex);
+/** Continuous progress bar that fills across the full onboarding flow. */
+function SegmentedProgressBar({ totalSlides, activeIndex }) {
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    if (activeIndex > prevIndexRef.current) {
-      segmentFill.value = 0;
-      segmentFill.value = withTiming(1, {
-        duration: SEGMENT_FILL_DURATION,
-        easing: Easing.out(Easing.cubic),
-      });
-    } else if (activeIndex < prevIndexRef.current) {
-      segmentFill.value = 1;
-    } else if (activeIndex === 0 && prevIndexRef.current === 0) {
-      segmentFill.value = withTiming(1, {
-        duration: SEGMENT_FILL_DURATION,
-        easing: Easing.out(Easing.cubic),
-      });
-    }
-    prevIndexRef.current = activeIndex;
-    activeIndexRef.value = activeIndex;
-  }, [activeIndex, segmentFill, activeIndexRef]);
+    const safeTotal = Math.max(totalSlides, 1);
+    const targetProgress = Math.min(Math.max((activeIndex + 1) / safeTotal, 0), 1);
+    progress.value = withTiming(targetProgress, {
+      duration: SEGMENT_FILL_DURATION,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [activeIndex, totalSlides, progress]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    transformOrigin: 'left',
+    transform: [{ scaleX: progress.value }],
+  }));
 
   return (
-    <View style={styles.progressRow}>
-      {Array.from({ length: segments }, (_, i) => (
-        <SegmentFill
-          key={i}
-          index={i}
-          segmentFill={segmentFill}
-          activeIndexRef={activeIndexRef}
-        />
-      ))}
+    <View style={styles.progressTrack}>
+      <AnimatedReanimated.View style={[styles.progressTrackFill, fillStyle]} />
     </View>
   );
 }
 
-function SegmentFill({ index, segmentFill, activeIndexRef }) {
-  const animatedStyle = useAnimatedStyle(() => {
-    const active = activeIndexRef.value;
-    let scaleX = 0;
-    if (index < active) scaleX = 1;
-    else if (index === active) scaleX = segmentFill.value;
-    return {
-      transformOrigin: 'left',
-      transform: [{ scaleX }],
-    };
-  });
-  return (
-    <View style={[styles.progressSegment, styles.progressSegmentEmpty]}>
-      <AnimatedReanimated.View
-        style={[styles.progressSegmentFill, animatedStyle]}
-      />
-    </View>
-  );
+function createId(prefix) {
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `${prefix}_${Date.now()}_${rand}`;
+}
+
+function getSlideTitle(idx) {
+  if (idx === 0) return QUESTION_1.heading;
+  if (idx === PARTNER_NAME_SLIDE_INDEX) return "What's your partner's name?";
+  if (idx === 2) return FEATURE_TITLES[1];
+  if (idx === PHOTO_DELIVERY_SLIDE_INDEX) return FEATURE_TITLES[0];
+  if (idx === WIDGET_DROP_SLIDE_INDEX) return '...RIGHT TO YOUR PARTNER\'S HOME SCREEN.';
+  if (idx === CALENDAR_SLIDE_INDEX) return FEATURE_TITLES[5];
+  if (idx === SCIENCE_SLIDE_INDEX) return 'The Science of Staying Together';
+  if (idx === 7) return QUESTION_2.heading;
+  if (idx === 8) return QUESTION_3.heading;
+  if (idx === 9) return QUESTION_4.heading;
+  if (idx === 10) return FEATURE_TITLES[2];
+  if (idx === 11) return QUESTION_5.heading;
+  if (idx === 12) return FEATURE_TITLES[3];
+  if (idx === FINAL_SLIDE_INDEX) return FEATURE_TITLES[4];
+  return `Slide ${idx + 1}`;
 }
 
 export function OnboardingFlow() {
@@ -319,6 +314,7 @@ export function OnboardingFlow() {
   const [scienceInsightVisible, setScienceInsightVisible] = useState(false);
   const [stayPctDisplay, setStayPctDisplay] = useState(0);
   const [widgetDropButtonEnabled, setWidgetDropButtonEnabled] = useState(false);
+  const [photoDeliveryButtonEnabled, setPhotoDeliveryButtonEnabled] = useState(false);
   const [calendarCountdownDisplay, setCalendarCountdownDisplay] = useState(15);
   const [calendarConfettiVisible, setCalendarConfettiVisible] = useState(false);
   const [calendarButtonEnabled, setCalendarButtonEnabled] = useState(false);
@@ -346,6 +342,11 @@ export function OnboardingFlow() {
     sendMomentsStyle,
     checkInRhythm,
     partnerName,
+    setSituation,
+    setHardestPart,
+    setBringsYouHere,
+    setSendMomentsStyle,
+    setCheckInRhythm,
     toggleSituation,
     toggleHardestPart,
     toggleBringsYouHere,
@@ -354,6 +355,103 @@ export function OnboardingFlow() {
     setPartnerName,
     setOnboardingData,
   } = useOnboardingStore();
+  const authToken = useAuthStore((state) => state.token);
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  const sessionIdRef = useRef('');
+  const queueRef = useRef([]);
+  const flushTimerRef = useRef(null);
+  const slideEnteredAtRef = useRef(Date.now());
+  const appStateRef = useRef(AppState.currentState);
+
+  const flushEvents = async () => {
+    if (!queueRef.current.length || !sessionIdRef.current) return;
+    const events = [...queueRef.current];
+    try {
+      if (authToken) await sendOnboardingEvents(events);
+      else await sendAnonymousOnboardingEvents(events);
+      queueRef.current = queueRef.current.slice(events.length);
+    } catch {
+      // Keep queued events for next attempt.
+    }
+  };
+
+  const scheduleFlush = () => {
+    if (flushTimerRef.current) return;
+    flushTimerRef.current = setTimeout(async () => {
+      flushTimerRef.current = null;
+      await flushEvents();
+    }, 800);
+  };
+
+  const queueEvent = ({ eventName, slideIndex: eventSlideIndex = null, timeOnSlideMs = null, metadata = {}, slideKey = null }) => {
+    if (!sessionIdRef.current || !eventName) return;
+    queueRef.current.push({
+      eventId: createId('evt'),
+      eventName,
+      sessionId: sessionIdRef.current,
+      slideIndex: Number.isInteger(eventSlideIndex) ? eventSlideIndex : null,
+      slideKey: slideKey || (Number.isInteger(eventSlideIndex) ? `slide_${eventSlideIndex}` : null),
+      timeOnSlideMs: Number.isFinite(timeOnSlideMs) ? Math.max(0, Math.round(timeOnSlideMs)) : null,
+      metadata: {
+        appVersion: APP_VERSION,
+        phase,
+        userId,
+        ...metadata,
+      },
+      occurredAt: new Date().toISOString(),
+    });
+    scheduleFlush();
+  };
+
+  useEffect(() => {
+    sessionIdRef.current = createId('onb');
+    return () => {
+      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+      flushEvents().catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    flushEvents().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken]);
+
+  useEffect(() => {
+    if (phase !== 'slides') return;
+    if (slideIndex === 0) setSituation([]);
+    if (slideIndex === PARTNER_NAME_SLIDE_INDEX) setPartnerName('');
+    if (slideIndex === 7) setHardestPart([]);
+    if (slideIndex === 8) setBringsYouHere([]);
+    if (slideIndex === 9) setSendMomentsStyle([]);
+    if (slideIndex === 11) setCheckInRhythm([]);
+    slideEnteredAtRef.current = Date.now();
+    queueEvent({
+      eventName: 'slide_viewed',
+      slideIndex,
+      metadata: {
+        slideTitle: getSlideTitle(slideIndex),
+        ...getSurveyMetadata(slideIndex),
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, slideIndex]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+      const isLeavingActive =
+        (previousState === 'active' || previousState === 'unknown') &&
+        (nextState === 'inactive' || nextState === 'background');
+      if (!isLeavingActive) return;
+      if (phase !== 'slides' || slideIndex === FINAL_SLIDE_INDEX) return;
+      trackCurrentSlideExit('onboarding_exited', { source: 'app_background' });
+      flushEvents().catch(() => {});
+    });
+    return () => subscription.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, slideIndex]);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -379,6 +477,7 @@ export function OnboardingFlow() {
 
   useEffect(() => {
     if (slideIndex !== PHOTO_DELIVERY_SLIDE_INDEX) return undefined;
+    setPhotoDeliveryButtonEnabled(false);
     deliveryAnim.setValue(0);
     deliveryDoveOpacity.setValue(1);
     deliveryDoveX.setValue(0);
@@ -428,11 +527,13 @@ export function OnboardingFlow() {
       ])
     );
     orbitLoop.start();
+    const continueTimer = setTimeout(() => setPhotoDeliveryButtonEnabled(true), PHOTO_DELIVERY_BUTTON_DELAY_MS);
 
     return () => {
       cameraLoop.stop();
       orbitLoop.stop();
       deliveryWingLoopRef.current?.stop?.();
+      clearTimeout(continueTimer);
     };
   }, [deliveryAnim, slideIndex, deliveryDoveOpacity, deliveryDoveX, deliveryDoveY, deliveryFlyRotate, deliveryWingPhase]);
 
@@ -583,23 +684,73 @@ export function OnboardingFlow() {
     return () => clearInterval(interval);
   }, [slideIndex]);
 
-  const handleGetStarted = () => setPhase('slides');
-  const handleCreateAccount = () => router.replace('/auth');
+  const trackCurrentSlideExit = (eventName, metadata = {}) => {
+    if (phase !== 'slides') return;
+    const dwell = Date.now() - slideEnteredAtRef.current;
+    queueEvent({
+      eventName,
+      slideIndex,
+      timeOnSlideMs: dwell,
+      metadata: {
+        slideTitle: getSlideTitle(slideIndex),
+        ...getSurveyMetadata(slideIndex),
+        ...metadata,
+      },
+    });
+  };
+
+  const getSurveyMetadata = (idx) => {
+    const trimmedPartnerName = partnerName.trim();
+    if (idx === 0) return { questionKey: 'current_situation', selectedOptions: situation };
+    if (idx === 7) return { questionKey: 'hardest_part', selectedOptions: hardestPart };
+    if (idx === 8) return { questionKey: 'what_brings_you_here', selectedOptions: bringsYouHere };
+    if (idx === 9) return { questionKey: 'share_moments_style', selectedOptions: sendMomentsStyle };
+    if (idx === 11) return { questionKey: 'check_in_rhythm', selectedOptions: checkInRhythm };
+    if (idx === PARTNER_NAME_SLIDE_INDEX) {
+      return {
+        questionKey: 'partner_name',
+        partnerNameInput: trimmedPartnerName || null,
+      };
+    }
+    return {};
+  };
+
+  const handleGetStarted = () => {
+    queueEvent({ eventName: 'onboarding_started', metadata: { entryPoint: 'intro_cta' } });
+    setPhase('slides');
+  };
+  const handleCreateAccount = (source = 'unknown') => {
+    if (phase === 'slides') {
+      const eventName = slideIndex === FINAL_SLIDE_INDEX ? 'onboarding_completed' : 'onboarding_exited';
+      trackCurrentSlideExit(eventName, { source });
+    } else {
+      queueEvent({ eventName: 'onboarding_exited', metadata: { source: 'intro' } });
+    }
+    flushEvents().catch(() => {});
+    router.replace('/auth');
+  };
   const showCTAs = phase === 'slides' && slideIndex === FINAL_SLIDE_INDEX;
 
-  const goToSlide = (index) => {
+  const goToSlide = (index, transitionEvent = 'slide_advanced') => {
+    if (phase === 'slides' && index !== slideIndex) {
+      const clamped = Math.max(0, Math.min(TOTAL_SLIDES - 1, index));
+      trackCurrentSlideExit(transitionEvent, { toSlideIndex: clamped });
+    }
     const i = Math.max(0, Math.min(TOTAL_SLIDES - 1, index));
     setSlideIndex(i);
   };
 
   const handleSlideBack = () => {
-    if (slideIndex === 0) setPhase('intro');
-    else goToSlide(slideIndex - 1);
+    if (slideIndex === 0) {
+      trackCurrentSlideExit('slide_back', { toPhase: 'intro' });
+      setPhase('intro');
+    } else goToSlide(slideIndex - 1, 'slide_back');
   };
 
   /** Right-tap advance: allowed unless we're on a question slide with no selection or widget-drop/calendar (unskippable until done). */
   const canAdvance =
     (slideIndex === 0 && situation.length > 0) ||
+    (slideIndex === PHOTO_DELIVERY_SLIDE_INDEX && photoDeliveryButtonEnabled) ||
     (slideIndex === 7 && hardestPart.length > 0) ||
     (slideIndex === 8 && bringsYouHere.length > 0) ||
     (slideIndex === 9 && sendMomentsStyle.length > 0) ||
@@ -621,7 +772,7 @@ export function OnboardingFlow() {
         partnerName: partnerName.trim(),
       });
     }
-    if (canAdvance && slideIndex < TOTAL_SLIDES - 1) goToSlide(slideIndex + 1);
+    if (canAdvance && slideIndex < TOTAL_SLIDES - 1) goToSlide(slideIndex + 1, 'slide_advanced');
   };
 
   const handlePartnerNameContinue = (name, nextIndex) => {
@@ -657,7 +808,7 @@ export function OnboardingFlow() {
       if (!finished) return;
       setIsPartnerNameSubmitting(false);
       setSubmittedPartnerName('');
-      goToSlide(nextIndex);
+      goToSlide(nextIndex, 'slide_advanced');
     });
   };
 
@@ -687,7 +838,7 @@ export function OnboardingFlow() {
                 toggleCheckInRhythm;
       return (
         <View style={[styles.slide, styles.questionSlide]}>
-          <Pressable onPress={() => (idx === 0 ? setPhase('intro') : goToSlide(idx - 1))} style={styles.backButton}>
+          <Pressable onPress={() => (idx === 0 ? handleSlideBack() : goToSlide(idx - 1, 'slide_back'))} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.questionTitle}>{q.heading}</Text>
@@ -765,7 +916,7 @@ export function OnboardingFlow() {
       });
       return (
         <View style={[styles.slide, styles.questionSlide]}>
-          <Pressable onPress={() => !isPartnerNameSubmitting && goToSlide(idx - 1)} style={styles.backButton}>
+          <Pressable onPress={() => !isPartnerNameSubmitting && goToSlide(idx - 1, 'slide_back')} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.questionTitle}>{"What's your partner's name?"}</Text>
@@ -872,8 +1023,18 @@ export function OnboardingFlow() {
               <View style={styles.doveCarryMiniCard} />
             </Animated.View>
           </View>
-          <Text style={styles.slideTitle}>{FEATURE_TITLES[0]}</Text>
-          <Text style={styles.slideSubtitle}>Then watch our little dove whisk it away to your partner.</Text>
+          <Text style={[styles.slideTitle, styles.photoDeliverySlideTitle]}>{FEATURE_TITLES[0]}</Text>
+          <Text style={[styles.slideSubtitle, styles.photoDeliverySlideSubtitle]}>Then watch our little dove whisk it away to your partner.</Text>
+          <AnimatedReanimated.View style={styles.photoDeliveryCtaWrap}>
+            <TouchableOpacity
+              style={[styles.primaryButton, !photoDeliveryButtonEnabled && styles.primaryButtonDisabled]}
+              onPress={() => goToSlide(idx + 1)}
+              disabled={!photoDeliveryButtonEnabled}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </AnimatedReanimated.View>
         </View>
       );
     }
@@ -1269,7 +1430,7 @@ export function OnboardingFlow() {
           <TouchableOpacity style={styles.primaryButton} onPress={handleGetStarted} activeOpacity={0.85}>
             <Text style={styles.primaryButtonText}>Get Started</Text>
           </TouchableOpacity>
-          <Pressable onPress={handleCreateAccount} style={styles.secondaryLink} accessibilityRole="link">
+          <Pressable onPress={() => handleCreateAccount('intro_sign_in')} style={styles.secondaryLink} accessibilityRole="link">
             <Text style={styles.secondaryLinkText}>Already have an account? Sign in</Text>
           </Pressable>
         </View>
@@ -1282,8 +1443,7 @@ export function OnboardingFlow() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>YOUR STORY BEGINS...</Text>
-        <Text style={styles.headerStep}>Step {slideIndex + 1} of {TOTAL_SLIDES}</Text>
-        <SegmentedProgressBar segments={TOTAL_SLIDES} activeIndex={slideIndex} />
+        <SegmentedProgressBar totalSlides={TOTAL_SLIDES} activeIndex={slideIndex} />
       </View>
 
       <View style={styles.carouselWrap}>
@@ -1299,7 +1459,7 @@ export function OnboardingFlow() {
           </AnimatedReanimated.View>
         </View>
         {/* Tap-through overlay on photo animation + feature slides; question/science/final are button-driven */}
-        {(slideIndex === PHOTO_DELIVERY_SLIDE_INDEX || FEATURE_SLIDE_INDICES.includes(slideIndex)) && (
+        {FEATURE_SLIDE_INDICES.includes(slideIndex) && (
           <View style={styles.tapOverlay}>
             <Pressable style={styles.tapZoneLeft} onPress={handleSlideBack} />
             <Pressable style={styles.tapZoneRight} onPress={handleSlideNext} />
@@ -1309,10 +1469,10 @@ export function OnboardingFlow() {
 
       {showCTAs && (
         <View style={styles.bottomActions}>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleCreateAccount} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => handleCreateAccount('final_primary_cta')} activeOpacity={0.85}>
             <Text style={styles.primaryButtonText}>LET'S GO!</Text>
           </TouchableOpacity>
-          <Pressable onPress={handleCreateAccount} style={styles.secondaryLink}>
+          <Pressable onPress={() => handleCreateAccount('final_login_link')} style={styles.secondaryLink}>
             <Text style={styles.secondaryLinkText}>Log in to existing account</Text>
           </Pressable>
         </View>
@@ -1397,27 +1557,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     marginBottom: 4,
   },
-  headerStep: {
-    fontSize: 13,
-    color: colors.textMuted,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  progressSegment: {
-    flex: 1,
+  progressTrack: {
+    width: '100%',
     height: 5,
     borderRadius: 3,
     overflow: 'hidden',
     backgroundColor: colors.blush + '60',
   },
-  progressSegmentEmpty: {
-    backgroundColor: colors.blush + '60',
-  },
-  progressSegmentFill: {
+  progressTrackFill: {
     position: 'absolute',
     left: 0,
     top: 0,
@@ -1877,6 +2024,16 @@ const styles = StyleSheet.create({
   widgetDropCtaWrap: {
     marginTop: 16,
     width: '100%',
+  },
+  photoDeliveryCtaWrap: {
+    marginTop: 26,
+    width: '100%',
+  },
+  photoDeliverySlideTitle: {
+    marginTop: 200,
+  },
+  photoDeliverySlideSubtitle: {
+    paddingHorizontal: 16,
   },
   calendarSlideStage: {
     width: '100%',

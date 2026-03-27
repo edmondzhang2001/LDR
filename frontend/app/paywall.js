@@ -4,12 +4,14 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Purchases from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
-import { syncSubscription } from '../src/lib/api';
+import { syncSubscription, trackOnboardingSubscription } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
 
 const RADIUS = 24;
+const ONBOARDING_SESSION_KEY = 'ldr_onboarding_session_id';
 
 export default function PaywallScreen() {
   const router = useRouter();
@@ -20,11 +22,23 @@ export default function PaywallScreen() {
   const [loading, setLoading] = useState(false);
   const [isVerifyingPurchase, setIsVerifyingPurchase] = useState(false);
 
-  const handleSuccessfulPurchase = async () => {
+  const handleSuccessfulPurchase = async (paywallResult) => {
     setIsVerifyingPurchase(true);
     try {
+      const sessionId = await SecureStore.getItemAsync(ONBOARDING_SESSION_KEY);
+      let paymentOption = null;
+      try {
+        const customerInfo = await Purchases.getCustomerInfo();
+        const activeEntitlements = Object.values(customerInfo?.entitlements?.active || {});
+        paymentOption = activeEntitlements[0]?.productIdentifier || null;
+      } catch (_) {}
       setHasPremiumAccessOptimistic(true);
-      await syncSubscription();
+      await syncSubscription({
+        sessionId,
+        paymentOption,
+        paywallResult: String(paywallResult || 'purchased').toLowerCase(),
+        subscriptionSource: 'revenuecat_paywall',
+      });
       await refreshUser();
       router.replace('/');
     } finally {
@@ -42,7 +56,17 @@ export default function PaywallScreen() {
       }
       const paywallResult = await RevenueCatUI.presentPaywall();
       if (paywallResult === PAYWALL_RESULT.PURCHASED || paywallResult === PAYWALL_RESULT.RESTORED) {
-        await handleSuccessfulPurchase();
+        await handleSuccessfulPurchase(paywallResult);
+      } else {
+        const sessionId = await SecureStore.getItemAsync(ONBOARDING_SESSION_KEY);
+        if (sessionId) {
+          await trackOnboardingSubscription({
+            sessionId,
+            didSubscribe: false,
+            paywallResult: String(paywallResult || 'cancelled').toLowerCase(),
+            subscriptionSource: 'revenuecat_paywall',
+          }).catch(() => {});
+        }
       }
     } finally {
       setLoading(false);

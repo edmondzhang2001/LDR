@@ -145,8 +145,44 @@ export async function deletePhoto(photoId) {
   await api.delete(`/photo/${encodeURIComponent(photoId)}`);
 }
 
-/** POST /api/user/sync-subscription — tell backend to set isPremium from client (self-heal after RC confirms entitlement). */
-export async function syncSubscription() {
-  const { data } = await api.post('/user/sync-subscription');
+/** POST /api/user/sync-subscription — verify entitlement and optionally attach onboarding conversion metadata. */
+export async function syncSubscription(payload = {}) {
+  const { data } = await api.post('/user/sync-subscription', payload);
+  return data;
+}
+
+/** POST /api/user/onboarding-subscription — store onboarding subscription outcome. */
+export async function trackOnboardingSubscription(payload = {}) {
+  const { data } = await api.post('/user/onboarding-subscription', payload);
+  return data;
+}
+
+/** POST /api/user/onboarding-events/anonymous — send anonymous onboarding events batch. */
+export async function sendAnonymousOnboardingEvents(events) {
+  const { data } = await api.post('/user/onboarding-events/anonymous', {
+    events: Array.isArray(events) ? events : [],
+  });
+  return data;
+}
+
+/** POST /api/user/onboarding-events — send authenticated onboarding events batch. */
+export async function sendOnboardingEvents(events) {
+  const { data } = await api.post('/user/onboarding-events', {
+    events: Array.isArray(events) ? events : [],
+  });
+  return data;
+}
+
+/** POST /api/user/onboarding-events/stitch — stitch anon session to authenticated user. */
+export async function stitchOnboardingSession(sessionId) {
+  const { data } = await api.post('/user/onboarding-events/stitch', {
+    sessionId: String(sessionId || '').trim(),
+  });
+  return data;
+}
+
+/** GET /api/user/onboarding-insights — fetch onboarding funnel metrics. */
+export async function getOnboardingInsights(params = {}) {
+  const { data } = await api.get('/user/onboarding-insights', { params });
   return data;
 }

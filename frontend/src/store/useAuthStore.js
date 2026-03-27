@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood, updatePushToken, unlinkPartner as apiUnlinkPartner, getTodaysPhotos, deletePhoto as apiDeletePhoto } from '../lib/api';
+import { api, setApiToken, setApiLogout, getMe, updateProfile, getPartner, saveReunion as apiSaveReunion, endReunion as apiEndReunion, addUserPhoto, updateSettings, updateMood as apiUpdateMood, updatePushToken, unlinkPartner as apiUnlinkPartner, getTodaysPhotos, deletePhoto as apiDeletePhoto, stitchOnboardingSession } from '../lib/api';
 import { registerForPushNotificationsAsync } from '../lib/pushNotifications';
 let getAppGroupDirectory = () => null;
 let reloadWidget = () => {};
@@ -24,6 +24,7 @@ try {
 
 const TOKEN_KEY = 'ldr_token';
 const USER_KEY = 'ldr_user';
+const ONBOARDING_SESSION_KEY = 'ldr_onboarding_session_id';
 
 function parseFullName(fullName) {
   if (!fullName || typeof fullName !== 'string') return { firstName: undefined, lastName: undefined };
@@ -35,6 +36,16 @@ function parseFullName(fullName) {
 
 function buildFullName(firstName, lastName) {
   return [firstName, lastName].filter(Boolean).join(' ') || undefined;
+}
+
+async function stitchOnboardingIfPresent() {
+  try {
+    const sessionId = await SecureStore.getItemAsync(ONBOARDING_SESSION_KEY);
+    if (!sessionId) return;
+    await stitchOnboardingSession(sessionId);
+  } catch {
+    // Ignore stitch errors to avoid blocking auth flow.
+  }
 }
 
 function normalizeUser(dataUser) {
@@ -352,6 +363,7 @@ export const useAuthStore = create((set, get) => {
               const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
               if (tz) await updateSettings({ timezone: tz });
             } catch (_) {}
+            stitchOnboardingIfPresent();
             // Register for push and send token to backend
             registerForPushNotificationsAsync().then((token) => {
               if (token) updatePushToken(token).catch(() => {});
@@ -414,6 +426,7 @@ export const useAuthStore = create((set, get) => {
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
       setApiToken(data.token);
       set({ token: data.token, user, partnerId: user.partnerId });
+      stitchOnboardingIfPresent();
       // Register for push and send token to backend
       registerForPushNotificationsAsync().then((token) => {
         if (token) updatePushToken(token).catch(() => {});
@@ -459,6 +472,7 @@ export const useAuthStore = create((set, get) => {
         await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
         setApiToken(data.token);
         set({ token: data.token, user, partnerId: user.partnerId ?? null });
+        stitchOnboardingIfPresent();
         registerForPushNotificationsAsync().then((token) => {
           if (token) updatePushToken(token).catch(() => {});
         });
