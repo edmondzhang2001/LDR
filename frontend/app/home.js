@@ -309,7 +309,6 @@ export default function HomeScreen() {
 
   const handleDoveOverlayDone = () => {
     setAnimatingSend(false);
-    setSendingPhoto(false);
     setUploadPreviewUri(null);
     setUploadCaption('');
   };
@@ -606,12 +605,17 @@ export default function HomeScreen() {
       </Modal>
 
       <DoveCarryOverlay
-        visible={isAnimatingSend || isSendingPhoto}
+        visible={isAnimatingSend}
         imageUri={uploadPreviewUri}
         caption={uploadCaption}
         stampText={uploadCaption?.trim() ? `"${uploadCaption.trim()}"` : ''}
         onUploadRequest={() => performUpload(uploadPreviewUri, uploadCaption)}
         onDone={handleDoveOverlayDone}
+        onUploadResult={(success) => {
+          if (!success) {
+            Alert.alert('Upload failed', 'Could not send this photo. Please try again.');
+          }
+        }}
       />
 
       <Modal visible={showCustomCamera} animationType="slide" statusBarTranslucent>

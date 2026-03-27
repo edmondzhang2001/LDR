@@ -26,6 +26,7 @@ export function DoveCarryOverlay({
   stampText,
   onUploadRequest,
   onDone,
+  onUploadResult,
 }) {
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const postcardOpacity = useRef(new Animated.Value(1)).current;
@@ -46,6 +47,7 @@ export function DoveCarryOverlay({
 
   useEffect(() => {
     if (!visible || !imageUri) return;
+    let cancelled = false;
 
     overlayOpacity.setValue(0);
     doveOpacity.setValue(0);
@@ -61,13 +63,24 @@ export function DoveCarryOverlay({
     // Phase 1: Show overlay and postcard (useNativeDriver: false everywhere to avoid stopTracking mix)
     Animated.timing(overlayOpacity, { toValue: 1, duration: 200, useNativeDriver: false }).start();
 
+    // Start upload immediately in parallel with the animation.
+    onUploadRequest()
+      .then((success) => {
+        if (cancelled) return;
+        onUploadResult?.(!!success);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        onUploadResult?.(false);
+      });
+
     // Phase 2: Fade in dove after short delay, start wing flap
-    const doveFadeIn = Animated.delay(400);
+    const doveFadeIn = Animated.delay(180);
     const doveAppear = Animated.timing(doveOpacity, { toValue: 1, duration: 400, useNativeDriver: false });
     wingLoopRef.current = Animated.loop(
       Animated.sequence([
-        Animated.timing(wingPhase, { toValue: 1, duration: 120, useNativeDriver: false }),
-        Animated.timing(wingPhase, { toValue: -1, duration: 120, useNativeDriver: false }),
+        Animated.timing(wingPhase, { toValue: 1, duration: 180, useNativeDriver: false }),
+        Animated.timing(wingPhase, { toValue: -1, duration: 180, useNativeDriver: false }),
       ]),
       { iterations: -1 }
     );
@@ -83,9 +96,9 @@ export function DoveCarryOverlay({
     phase2.start(() => wingLoopRef.current?.start());
 
     // Phase 3: After dove visible, move dove to "grab" (above postcard), then fly off
-    const grabDuration = 400;
-    const flyDuration = 1100; // smooth 800–1200 ms for full fly-off
-    const grabStart = 900; // ms from overlay show
+    const grabDuration = 600;
+    const flyDuration = 1800;
+    const grabStart = 650; // ms from overlay show
 
     const moveDoveToGrab = Animated.delay(grabStart);
     const doveGrabX = 0;
@@ -115,35 +128,19 @@ export function DoveCarryOverlay({
     ]);
 
     phase3.start(() => {
+      if (cancelled) return;
       wingLoopRef.current?.stop();
-      runUpload();
+      cleanup();
     });
 
-    function runUpload() {
-      onUploadRequest()
-        .then((success) => {
-          if (success) {
-            cleanup();
-          } else {
-            playDropThenCleanup();
-          }
-        })
-        .catch(() => playDropThenCleanup());
-    }
-
-    function playDropThenCleanup() {
-      Animated.parallel([
-        Animated.timing(dropY, { toValue: 120, duration: 500, useNativeDriver: false }),
-        Animated.timing(dropOpacity, { toValue: 0.4, duration: 500, useNativeDriver: false }),
-      ]).start(() => cleanup());
-    }
-
     function cleanup() {
+      if (cancelled) return;
       overlayOpacity.setValue(0);
       onDone();
     }
 
     return () => {
+      cancelled = true;
       wingLoopRef.current?.stop();
     };
   }, [visible, imageUri]);
