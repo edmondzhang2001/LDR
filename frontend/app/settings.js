@@ -15,6 +15,7 @@ import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { colors } from '../src/theme/colors';
+import { WidgetSetupCoachModal } from '../src/components/WidgetSetupCoachModal';
 
 const RADIUS = 24;
 const SHADOW = {
@@ -39,6 +40,7 @@ export default function SettingsScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
+  const [widgetTutorialVisible, setWidgetTutorialVisible] = useState(false);
   const existingName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name || '';
 
   useEffect(() => {
@@ -188,6 +190,26 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
 
+          {Platform.OS === 'ios' ? (
+            <View style={styles.card}>
+              <Text style={styles.cardLabel}>Tutorials</Text>
+              <Pressable
+                style={({ pressed }) => [styles.tutorialRow, pressed && styles.buttonPressed]}
+                onPress={() => setWidgetTutorialVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Home Screen widgets tutorial"
+              >
+                <View style={styles.tutorialRowText}>
+                  <Text style={styles.tutorialRowTitle}>Home Screen widgets</Text>
+                  <Text style={styles.tutorialRowSubtitle}>
+                    Add partner photo, countdown, and live stats at a glance
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={22} color={colors.textMuted} />
+              </Pressable>
+            </View>
+          ) : null}
+
           {/* Unlink Partner — destructive look (red outline), only when paired */}
           {partnerId ? (
             <Pressable
@@ -214,6 +236,10 @@ export default function SettingsScreen() {
 
         </ScrollView>
       </KeyboardAvoidingView>
+      <WidgetSetupCoachModal
+        visible={widgetTutorialVisible}
+        onDismiss={() => setWidgetTutorialVisible(false)}
+      />
     </>
   );
 }
@@ -269,6 +295,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.white,
+  },
+  tutorialRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 12,
+  },
+  tutorialRowText: {
+    flex: 1,
+  },
+  tutorialRowTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  tutorialRowSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textMuted,
+    lineHeight: 20,
   },
   buttonPressed: {
     opacity: 0.9,
