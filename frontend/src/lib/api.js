@@ -140,6 +140,15 @@ export async function getTodaysPhotos() {
   return data.photos ?? [];
 }
 
+/** GET /api/photo/history — all Daily Story photos for you and partner (calendar). */
+export async function getPhotoHistory() {
+  const { data } = await api.get('/photo/history');
+  return {
+    mine: data.mine ?? [],
+    partner: data.partner ?? [],
+  };
+}
+
 /** DELETE /api/photo/:photoId — delete a photo. */
 export async function deletePhoto(photoId) {
   await api.delete(`/photo/${encodeURIComponent(photoId)}`);

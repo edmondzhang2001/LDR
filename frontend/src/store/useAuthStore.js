@@ -646,6 +646,7 @@ export const useAuthStore = create((set, get) => {
       } catch (e) {
         console.error('[deletePhoto]', e?.message || e);
         get().fetchTodaysPhotos();
+        throw e;
       }
     },
 

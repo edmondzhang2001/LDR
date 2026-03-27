@@ -11,6 +11,8 @@ const router = express.Router();
 const BUCKET = process.env.S3_BUCKET_NAME || 'ldr-uploads';
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const EXPIRY_SECONDS = 3600;
+/** Max photos returned per side (user / partner) for history payloads. */
+const MAX_HISTORY_PHOTOS_PER_SIDE = 500;
 
 const s3Client =
   process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
@@ -42,6 +44,51 @@ router.get('/today', requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+function mapPhotoForHistory(p) {
+  if (!p || !p.url) return null;
+  return {
+    id: p._id.toString(),
+    url: p.url,
+    thumbnailUrl: p.thumbnailUrl || undefined,
+    createdAt: new Date(p.createdAt).toISOString(),
+    caption: p.caption || '',
+  };
+}
+
+/** GET /api/photo/history — all stored Daily Story photos for you and your partner (for calendar). */
+router.get('/history', requireAuth, async (req, res) => {
+  try {
+    const mine = (req.user.photos || [])
+      .filter((p) => p?.url)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, MAX_HISTORY_PHOTOS_PER_SIDE)
+      .map(mapPhotoForHistory)
+      .filter(Boolean);
+
+    let partner = [];
+    const partnerId = req.user.partnerId;
+    if (partnerId) {
+      const partnerUser = await User.findById(partnerId).select('photos').lean();
+      partner = (partnerUser?.photos || [])
+        .filter((p) => p?.url)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, MAX_HISTORY_PHOTOS_PER_SIDE)
+        .map((p) => ({
+          id: p._id.toString(),
+          url: p.url,
+          thumbnailUrl: p.thumbnailUrl || undefined,
+          createdAt: new Date(p.createdAt).toISOString(),
+          caption: p.caption || '',
+        }));
+    }
+
+    res.json({ mine, partner });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 /** DELETE /api/photo/:photoId — delete a photo. If it was partner's widget photo, push update to partner. */
 router.delete('/:photoId', requireAuth, async (req, res) => {

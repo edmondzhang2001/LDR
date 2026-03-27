@@ -14,7 +14,7 @@ import { PostcardStack } from '../src/components/PostcardStack';
 import { PolaroidStack } from '../src/components/PolaroidStack';
 import { MoodEditorModal } from '../src/components/MoodEditorModal';
 import { DoveCarryOverlay } from '../src/components/DoveCarryOverlay';
-import { TodaysPhotosModal } from '../src/components/TodaysPhotosModal';
+import { PhotoHistoryCalendarModal } from '../src/components/PhotoHistoryCalendarModal';
 import { CustomCamera } from '../src/components/CustomCamera';
 import { updateLocation, updateBattery, getPresignedPhotoUrl } from '../src/lib/api';
 import { colors } from '../src/theme/colors';
@@ -28,7 +28,7 @@ const widgetCoachStorageKey = (userId) => (userId ? `ldr_wg_coach_v1_${userId}` 
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, partnerId, partner, fetchPartner, refreshUser, saveReunion, endReunion, addPhotoAfterUpload, updateMood, isAnimatingSend, isSendingPhoto, setAnimatingSend, setSendingPhoto, todaysPhotos, fetchTodaysPhotos, deletePhotoFromToday, refreshStatsWidget } = useAuthStore();
+  const { user, partnerId, partner, fetchPartner, refreshUser, saveReunion, endReunion, addPhotoAfterUpload, updateMood, isAnimatingSend, isSendingPhoto, setAnimatingSend, setSendingPhoto, deletePhotoFromToday, refreshStatsWidget } = useAuthStore();
   const [myLocation, setMyLocation] = useState(null);
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -38,7 +38,6 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showCustomCamera, setShowCustomCamera] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [widgetPhotoPreviewUri, setWidgetPhotoPreviewUri] = useState(null);
   const [widgetPhotoSyncing, setWidgetPhotoSyncing] = useState(false);
   const [widgetCoachVisible, setWidgetCoachVisible] = useState(false);
@@ -105,15 +104,6 @@ export default function HomeScreen() {
       }
     );
   }, [handleOpenWidgetPhotoPicker]);
-
-  const handleFetchTodaysPhotos = useCallback(async () => {
-    setHistoryLoading(true);
-    try {
-      await fetchTodaysPhotos();
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [fetchTodaysPhotos]);
 
   const refreshMyLocation = useCallback(async (force = false) => {
     if (!force && Date.now() - lastLocationFetch.current < LOCATION_COOLDOWN_MS) {
@@ -653,13 +643,17 @@ export default function HomeScreen() {
         )}
       </Pressable>
 
-      <TodaysPhotosModal
+      <PhotoHistoryCalendarModal
         visible={historyModalVisible}
         onClose={() => setHistoryModalVisible(false)}
-        photos={todaysPhotos}
-        isLoading={historyLoading}
-        onFetch={handleFetchTodaysPhotos}
-        onDelete={deletePhotoFromToday}
+        partnerFirstName={partnerFirstNameValue}
+        partnerCity={cityName}
+        selfFirstName={user?.firstName}
+        onDeleteMine={async (photoId) => {
+          await deletePhotoFromToday(photoId);
+          await refreshUser();
+          await fetchPartner();
+        }}
       />
     </View>
   );

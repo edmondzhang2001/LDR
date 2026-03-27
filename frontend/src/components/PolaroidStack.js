@@ -164,6 +164,55 @@ function buildStampText(photo, partnerFirstName, partnerCity) {
   return [formatStampDate(photo.createdAt), partnerCity].filter(Boolean).join(' • ') || '—';
 }
 
+export function buildHistoryStampText(photo, { isMine, partnerFirstName, partnerCity, selfLabel }) {
+  if (photo.caption && photo.caption.trim()) {
+    const raw = photo.caption.trim();
+    const truncated = raw.length > MAX_CAPTION_DISPLAY ? raw.slice(0, MAX_CAPTION_DISPLAY) + '…' : raw;
+    const who = isMine ? selfLabel || 'You' : partnerFirstName || 'Partner';
+    return `"${truncated}" - ${who}`;
+  }
+  if (isMine) {
+    return formatStampDate(photo.createdAt) || '—';
+  }
+  return [formatStampDate(photo.createdAt), partnerCity].filter(Boolean).join(' • ') || '—';
+}
+
+/** Single polaroid for history / calendar day list; matches stack frame and stamp styling. */
+export function PolaroidHistoryCard({
+  photo,
+  width,
+  framePresetIndex = 0,
+  isMine,
+  partnerFirstName = '',
+  partnerCity = '',
+  selfLabel,
+  style,
+}) {
+  const w = width ?? Math.min(SCREEN_WIDTH - 48, 280);
+  const h = w / POLAROID_ASPECT_RATIO;
+  const stampText = buildHistoryStampText(photo, { isMine, partnerFirstName, partnerCity, selfLabel });
+  const FrameComponent = FRAME_COMPONENTS[framePresetIndex % 5];
+  const uri = photo.thumbnailUrl || photo.url;
+  return (
+    <View style={[{ width: w, height: h, alignSelf: 'center' }, style]}>
+      <View style={[styles.polaroidOuter, { width: w, height: h }]}>
+        <FrameComponent>
+          <View style={styles.polaroidContent}>
+            <View style={styles.polaroidInner}>
+              <Image source={{ uri }} style={styles.polaroidImage} resizeMode="cover" />
+            </View>
+            <View style={styles.stampBar}>
+              <Text style={styles.stamp} numberOfLines={2} ellipsizeMode="tail">
+                {stampText}
+              </Text>
+            </View>
+          </View>
+        </FrameComponent>
+      </View>
+    </View>
+  );
+}
+
 export function PolaroidStack({ partnerPhotos = [], partnerCity = '', partnerFirstName = '' }) {
   const photos = useMemo(
     () =>
