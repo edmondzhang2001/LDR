@@ -170,6 +170,13 @@ TaskManager.defineTask(TASK_NAME, runWidgetUpdate);
 /** Extract photoUrl from background task payload (iOS/Android vary; structure differs by platform). */
 function getPhotoUrlFromTaskPayload(data) {
   if (!data) return undefined;
+  // Primary Expo path: data.notification.request.content.data (background notification task)
+  const notifData = data?.notification?.request?.content?.data;
+  if (notifData && typeof notifData.photoUrl === 'string') return notifData.photoUrl;
+  // Expo sometimes double-nests: data.notification.request.content.data.data
+  const notifInner = notifData?.data;
+  if (notifInner && typeof notifInner.photoUrl === 'string') return notifInner.photoUrl;
+  // Legacy / alternate paths
   const d = data?.data;
   if (d && typeof d.photoUrl === 'string') return d.photoUrl;
   if (d && typeof d.dataString === 'string') {
@@ -188,6 +195,12 @@ function getPhotoUrlFromTaskPayload(data) {
 
 function getCaptionFromTaskPayload(data) {
   if (!data) return '';
+  // Primary Expo path: data.notification.request.content.data (background notification task)
+  const notifData = data?.notification?.request?.content?.data;
+  if (notifData && typeof notifData.caption === 'string') return notifData.caption;
+  const notifInner = notifData?.data;
+  if (notifInner && typeof notifInner.caption === 'string') return notifInner.caption;
+  // Legacy / alternate paths
   const d = data?.data;
   if (d && typeof d.caption === 'string') return d.caption;
   if (d && typeof d.dataString === 'string') {
@@ -212,7 +225,8 @@ async function runBackgroundNotificationTask({ data, error: taskError }) {
   }
   const photoUrl = getPhotoUrlFromTaskPayload(data);
   const caption = getCaptionFromTaskPayload(data);
-  console.warn('[Duva BG] payload keys:', data ? Object.keys(data).join(',') : 'null', '| photoUrl:', photoUrl ? 'ok' : 'MISSING');
+  const notifDataKeys = data?.notification?.request?.content?.data ? Object.keys(data.notification.request.content.data).join(',') : 'none';
+  console.warn('[Duva BG] payload keys:', data ? Object.keys(data).join(',') : 'null', '| notif.data keys:', notifDataKeys, '| photoUrl:', photoUrl ? 'ok' : 'MISSING');
   if (photoUrl === undefined) return Result.NoData;
   try {
     const sharedPath = getAppGroupDirectory(APP_GROUP_ID);

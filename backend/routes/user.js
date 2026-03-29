@@ -7,8 +7,7 @@ const User = require('../models/User');
 const OnboardingSession = require('../models/OnboardingSession');
 const OnboardingSurveyResponse = require('../models/OnboardingSurveyResponse');
 const { ONBOARDING_EVENT_NAMES } = require('../models/OnboardingSession');
-const Expo = require('expo-server-sdk').Expo;
-const expoPush = new Expo();
+const { getExpoPush } = require('../lib/expoPush');
 
 const router = express.Router();
 const BUCKET = process.env.S3_BUCKET_NAME || 'ldr-uploads';
@@ -639,8 +638,9 @@ router.post('/photo', requireAuth, async (req, res) => {
     // Notify partner so widget can update in background (Locket-style) and show visible notification
     const finalPhotoUrl = thumbnailUrl || photoUrl;
     const partnerId = req.user.partnerId;
-    if (finalPhotoUrl && partnerId && Expo.isExpoPushToken) {
+    if (finalPhotoUrl && partnerId) {
       try {
+        const { Expo, expoPush } = await getExpoPush();
         const partner = await User.findById(partnerId).select('pushToken').lean();
         const pushToken = partner?.pushToken;
         if (pushToken && Expo.isExpoPushToken(pushToken)) {
@@ -752,8 +752,9 @@ router.put('/mood', requireAuth, async (req, res) => {
 
     // Notify partner that mood was updated
     const partnerId = req.user.partnerId;
-    if (partnerId && Expo.isExpoPushToken) {
+    if (partnerId) {
       try {
+        const { Expo, expoPush } = await getExpoPush();
         const partner = await User.findById(partnerId).select('pushToken').lean();
         const pushToken = partner?.pushToken;
         if (pushToken && Expo.isExpoPushToken(pushToken)) {

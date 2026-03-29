@@ -4,8 +4,7 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { requireAuth } = require('../middleware/auth');
 const User = require('../models/User');
-const Expo = require('expo-server-sdk').Expo;
-const expoPush = new Expo();
+const { getExpoPush } = require('../lib/expoPush');
 
 const router = express.Router();
 const BUCKET = process.env.S3_BUCKET_NAME || 'ldr-uploads';
@@ -107,8 +106,9 @@ router.delete('/:photoId', requireAuth, async (req, res) => {
     await req.user.save();
 
     const partnerId = req.user.partnerId;
-    if (wasWidgetPhoto && partnerId && Expo.isExpoPushToken) {
+    if (wasWidgetPhoto && partnerId) {
       try {
+        const { Expo, expoPush } = await getExpoPush();
         const partner = await User.findById(partnerId).select('pushToken').lean();
         const pushToken = partner?.pushToken;
         if (pushToken && Expo.isExpoPushToken(pushToken)) {

@@ -183,14 +183,13 @@ export default function HomeScreen() {
     return () => subscription.remove();
   }, [fetchPartner, refreshUser, refreshMyLocation]);
 
-  // Guard: no user (e.g. session invalid / DB wiped) → login
+  // Guard: no user (e.g. session invalid / DB wiped) → _layout handles global auth redirect to onboarding.
+  // Guard: no partner → pair screen. Use primitive deps (user?.id, partnerId) so this doesn't
+  // re-fire on every refreshUser() call that creates a new user object reference.
   useEffect(() => {
-    if (!user) {
-      router.replace('/auth');
-      return;
-    }
+    if (!user?.id) return; // _layout.js handles the unauthenticated redirect globally
     if (partnerId == null) router.replace('/pair');
-  }, [user, partnerId, router]);
+  }, [user?.id, partnerId, router]);
 
   // Fetch partner profile when we have partnerId but no partner in store
   useEffect(() => {

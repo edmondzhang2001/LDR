@@ -115,7 +115,8 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (!Purchases) return;
+    // Skip setting up the listener if user already has premium — avoids repeated router.replace bouncing
+    if (!Purchases || user?.hasPremiumAccess) return;
     const entitlementId = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID || 'premium';
     const onCustomerInfoUpdated = (customerInfo) => {
       const hasEntitlement = customerInfo?.entitlements?.active?.[entitlementId] != null;
@@ -128,7 +129,7 @@ export default function RootLayout() {
     return () => {
       Purchases.removeCustomerInfoUpdateListener(onCustomerInfoUpdated);
     };
-  }, [router, setHasPremiumAccessOptimistic]);
+  }, [router, setHasPremiumAccessOptimistic, user?.hasPremiumAccess]);
 
   /** Self-healing: on launch, if RevenueCat says user has entitlement but backend does not, sync and unblock. */
   useEffect(() => {
@@ -151,12 +152,14 @@ export default function RootLayout() {
     })();
   }, [sessionVerified, token, user?.id, user?.hasPremiumAccess, setHasPremiumAccessOptimistic]);
 
-  // Only run redirect after auth has finished loading; unauthenticated users start at onboarding
+  // Only run redirect after auth has finished loading; unauthenticated users start at onboarding.
+  // Use token and user?.id (primitives) as deps so this doesn't re-fire on every refreshUser() call
+  // that creates a new user object reference.
   useEffect(() => {
     if (isAuthLoading) return;
     if (!sessionVerified) return;
-    if (!token || !user) router.replace('/onboarding');
-  }, [isAuthLoading, sessionVerified, token, user, router]);
+    if (!token || !user?.id) router.replace('/onboarding');
+  }, [isAuthLoading, sessionVerified, token, user?.id, router]);
 
   if (!fontsLoaded || isAuthLoading) {
     return (

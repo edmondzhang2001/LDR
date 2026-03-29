@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 70;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -69,36 +69,36 @@
 		E79BED5E2F62531500C63B83 /* DuvaImageWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DuvaImageWidgetExtension.entitlements; sourceTree = "<group>"; };
 		E79BEDAD2F625D8100C63B83 /* DuvaStatsWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DuvaStatsWidgetExtension.entitlements; sourceTree = "<group>"; };
 		E79BEDAE2F625D8700C63B83 /* DuvaCalendarWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DuvaCalendarWidgetExtension.entitlements; sourceTree = "<group>"; };
+		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F0A102001122334455667788 /* DuvaNotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DuvaNotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0A103001122334455667788 /* DuvaNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DuvaNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
-		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Duva/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Duva-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Duva-Bridging-Header.h"; path = "Duva/Duva-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		E79BED5C2F6252A000C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		E79BED5C2F6252A000C63B83 /* Exceptions for "DuvaImageWidget" folder in "DuvaImageWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = E79BED462F62529F00C63B83 /* DuvaImageWidgetExtension */;
 		};
-		E79BEDB02F625F2B00C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		E79BEDB02F625F2B00C63B83 /* Exceptions for "DuvaStatsWidget" folder in "DuvaImageWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				DuvaStatsWidget.swift,
 			);
 			target = E79BED462F62529F00C63B83 /* DuvaImageWidgetExtension */;
 		};
-		E79BEDB22F625F3B00C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		E79BEDB22F625F3B00C63B83 /* Exceptions for "DuvaCalendarWidget" folder in "DuvaImageWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				DuvaCalendarWidget.swift,
 			);
 			target = E79BED462F62529F00C63B83 /* DuvaImageWidgetExtension */;
 		};
-		F0A104001122334455667788 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		F0A104001122334455667788 /* Exceptions for "DuvaNotificationService" folder in "DuvaNotificationServiceExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -108,10 +108,54 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		E79BED4C2F62529F00C63B83 /* DuvaImageWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E79BED5C2F6252A000C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaImageWidget; sourceTree = "<group>"; };
-		E79BED842F625D2500C63B83 /* DuvaStatsWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E79BEDB02F625F2B00C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaStatsWidget; sourceTree = "<group>"; };
-		E79BED9C2F625D4300C63B83 /* DuvaCalendarWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E79BEDB22F625F3B00C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaCalendarWidget; sourceTree = "<group>"; };
-		F0A105001122334455667788 /* DuvaNotificationService */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (F0A104001122334455667788 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaNotificationService; sourceTree = "<group>"; };
+		E79BED4C2F62529F00C63B83 /* DuvaImageWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E79BED5C2F6252A000C63B83 /* Exceptions for "DuvaImageWidget" folder in "DuvaImageWidgetExtension" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = DuvaImageWidget;
+			sourceTree = "<group>";
+		};
+		E79BED842F625D2500C63B83 /* DuvaStatsWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E79BEDB02F625F2B00C63B83 /* Exceptions for "DuvaStatsWidget" folder in "DuvaImageWidgetExtension" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = DuvaStatsWidget;
+			sourceTree = "<group>";
+		};
+		E79BED9C2F625D4300C63B83 /* DuvaCalendarWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E79BEDB22F625F3B00C63B83 /* Exceptions for "DuvaCalendarWidget" folder in "DuvaImageWidgetExtension" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = DuvaCalendarWidget;
+			sourceTree = "<group>";
+		};
+		F0A105001122334455667788 /* DuvaNotificationService */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F0A104001122334455667788 /* Exceptions for "DuvaNotificationService" folder in "DuvaNotificationServiceExtension" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = DuvaNotificationService;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -331,7 +375,7 @@
 				};
 			};
 			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "Duva" */;
-			compatibilityVersion = "Xcode 14.0";
+			compatibilityVersion = "Xcode 15.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -426,13 +470,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Duva/Pods-Duva-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Duva/Pods-Duva-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -447,13 +487,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Duva/Pods-Duva-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Duva/Pods-Duva-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
