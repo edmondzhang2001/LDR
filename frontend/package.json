@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "engines": {
     "node": ">=20.19.4"
   },

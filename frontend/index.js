@@ -1,8 +1,4 @@
-import { registerRootComponent } from 'expo';
-
-import App from './App';
-
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
-registerRootComponent(App);
+// Ensure TaskManager definitions are loaded from app entry so iOS can execute
+// background notification tasks when the app is terminated.
+import './src/lib/backgroundWidgetTask';
+import 'expo-router/entry';

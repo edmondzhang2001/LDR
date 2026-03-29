@@ -31,7 +31,17 @@ struct Provider: TimelineProvider {
     private func loadImage() -> UIImage? {
         let appGroup = "group.com.edmond.duva"
         guard let sharedURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else { return nil }
-        let imageURL = sharedURL.appendingPathComponent("current_widget_photo.jpg")
+        let pointerURL = sharedURL.appendingPathComponent("current_widget_photo_active.txt")
+        let imageURL: URL
+        if
+            let pointer = try? String(contentsOf: pointerURL, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            !pointer.isEmpty
+        {
+            imageURL = sharedURL.appendingPathComponent(pointer)
+        } else {
+            imageURL = sharedURL.appendingPathComponent("current_widget_photo.jpg")
+        }
         return downsampleImage(at: imageURL, maxPixelSize: Self.imageMaxPixelSize)
     }
 

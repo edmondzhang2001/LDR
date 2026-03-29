@@ -656,6 +656,9 @@ router.post('/photo', requireAuth, async (req, res) => {
                 caption: captionStr,
                 type: 'new_photo',
               },
+              mutableContent: true,
+              _mutableContent: true,
+              contentAvailable: true,
               _contentAvailable: true,
             },
           ];

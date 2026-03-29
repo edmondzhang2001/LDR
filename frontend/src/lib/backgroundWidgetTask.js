@@ -21,10 +21,15 @@ const Result = Notifications?.BackgroundNotificationResult ?? {};
 
 let getAppGroupDirectory = () => null;
 let reloadWidget = () => {};
+let nativeUpdateWidgetPhotoFromUrl = async () => false;
+
+// Module-level subscription handle so we never register more than one listener.
+let _notificationSubscription = null;
 try {
   const shared = require('../../modules/shared-storage');
   getAppGroupDirectory = shared.getAppGroupDirectory;
   reloadWidget = shared.reloadWidget;
+  nativeUpdateWidgetPhotoFromUrl = shared.updateWidgetPhotoFromUrl;
 } catch {
   // iOS-only module
 }
@@ -45,21 +50,92 @@ async function writeCaptionToAppGroup(caption) {
   } catch (_) {}
 }
 
+async function writeActiveImagePointer(sharedPath, fileName) {
+  if (!sharedPath || !fileName) return;
+  const pointerUri = 'file://' + sharedPath + '/current_widget_photo_active.txt';
+  try {
+    await FileSystem.writeAsStringAsync(pointerUri, String(fileName).trim());
+  } catch (_) {}
+}
+
+async function clearWidgetImageFiles(sharedPath) {
+  if (!sharedPath) return;
+  const fallbackUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+  const pointerUri = 'file://' + sharedPath + '/current_widget_photo_active.txt';
+  try {
+    const pointerInfo = await FileSystem.getInfoAsync(pointerUri, { size: false });
+    if (pointerInfo.exists) {
+      const activeName = (await FileSystem.readAsStringAsync(pointerUri)).trim();
+      if (activeName) {
+        const activeUri = 'file://' + sharedPath + '/' + activeName;
+        await FileSystem.deleteAsync(activeUri, { idempotent: true }).catch(() => {});
+      }
+      await FileSystem.deleteAsync(pointerUri, { idempotent: true }).catch(() => {});
+    }
+  } catch (_) {}
+  await FileSystem.deleteAsync(fallbackUri, { idempotent: true }).catch(() => {});
+}
+
 /** Download a remote URL into the App Group as current_widget_photo.jpg. */
 async function downloadToAppGroup(url, caption = '') {
-  const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
-  if (!sharedPath) return false;
-  const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
-  const cacheUri = FileSystem.cacheDirectory + 'widget_photo_tmp.jpg';
-  const dl = await FileSystem.downloadAsync(url, cacheUri);
-  if (!dl || dl.status !== 200) return false;
   try {
-    const existing = await FileSystem.getInfoAsync(destUri, { size: false });
-    if (existing.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
-  } catch (_) {}
-  await FileSystem.copyAsync({ from: cacheUri, to: destUri });
-  await writeCaptionToAppGroup(caption);
-  return true;
+    const nativeOk = await nativeUpdateWidgetPhotoFromUrl(url, caption, APP_GROUP_ID);
+    if (nativeOk) {
+      console.warn('[Duva BG] native download ok');
+      return true;
+    }
+    console.warn('[Duva BG] native download unavailable/failed; using JS fallback');
+    const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
+    if (!sharedPath) return false;
+    const fileName = `current_widget_photo_${Date.now()}.jpg`;
+    const destUri = 'file://' + sharedPath + '/' + fileName;
+    const fallbackUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+    const cacheBase = FileSystem.cacheDirectory || 'file://' + sharedPath + '/';
+    const cacheUri = cacheBase + 'widget_photo_tmp.jpg';
+    console.warn('[Duva BG] download start');
+    const dl = await FileSystem.downloadAsync(url, cacheUri);
+    console.warn('[Duva BG] download done status:', dl?.status ?? 'no-response');
+    if (!dl || dl.status !== 200) {
+      console.warn('[Duva BG] download status != 200:', dl?.status ?? 'no-response');
+      return false;
+    }
+    try {
+      await clearWidgetImageFiles(sharedPath);
+      const existing = await FileSystem.getInfoAsync(destUri, { size: false });
+      if (existing.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
+    } catch (_) {}
+    await FileSystem.copyAsync({ from: cacheUri, to: destUri });
+    await FileSystem.copyAsync({ from: cacheUri, to: fallbackUri }).catch(() => {});
+    await writeActiveImagePointer(sharedPath, fileName);
+    try {
+      const written = await FileSystem.getInfoAsync(destUri, { size: true });
+      if (!written.exists || !written.size) {
+        console.warn('[Duva BG] copied file missing/empty after write');
+        return false;
+      }
+    } catch (_) {
+      console.warn('[Duva BG] could not verify copied file');
+      return false;
+    }
+    await writeCaptionToAppGroup(caption);
+    return true;
+  } catch (e) {
+    console.warn('[Duva BG] downloadToAppGroup exception:', e?.message || e);
+    return false;
+  }
+}
+
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeoutPromise = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      console.warn('[Duva BG] timeout:', label);
+      resolve(false);
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 }
 
 async function runWidgetUpdate() {
@@ -144,21 +220,41 @@ async function runBackgroundNotificationTask({ data, error: taskError }) {
       console.warn('[Duva BG] App Group path is null - shared-storage module may have failed to load');
       return Result.NoData;
     }
-    const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+    console.warn('[Duva BG] App Group path:', sharedPath);
     const urlStr = typeof photoUrl === 'string' ? photoUrl.trim() : '';
+    let updateOk = true;
     if (!urlStr) {
-      try {
-        const info = await FileSystem.getInfoAsync(destUri, { size: false });
-        if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
-      } catch (_) {}
+      await clearWidgetImageFiles(sharedPath);
       await writeCaptionToAppGroup('');
     } else {
-      const ok = await downloadToAppGroup(urlStr, caption);
-      if (!ok) console.warn('[Duva BG] download failed');
+      console.warn('[Duva BG] processing photoUrl');
+      const ok = await withTimeout(downloadToAppGroup(urlStr, caption), 12000, 'downloadToAppGroup');
+      if (!ok) {
+        console.warn('[Duva BG] direct download failed, falling back to API sync');
+        try {
+          await withTimeout(runWidgetUpdate(), 10000, 'runWidgetUpdate');
+        } catch (_) {}
+        const pointerUri = 'file://' + sharedPath + '/current_widget_photo_active.txt';
+        const fallbackUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+        const activeName = await FileSystem.readAsStringAsync(pointerUri).then((s) => s.trim()).catch(() => '');
+        const checkUri = activeName ? 'file://' + sharedPath + '/' + activeName : fallbackUri;
+        const infoAfterFallback = await FileSystem.getInfoAsync(checkUri, { size: true }).catch(() => ({ exists: false, size: 0 }));
+        updateOk = !!infoAfterFallback?.exists && !!infoAfterFallback?.size;
+      } else {
+        const pointerUri = 'file://' + sharedPath + '/current_widget_photo_active.txt';
+        const fallbackUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
+        const activeName = await FileSystem.readAsStringAsync(pointerUri).then((s) => s.trim()).catch(() => '');
+        const checkUri = activeName ? 'file://' + sharedPath + '/' + activeName : fallbackUri;
+        const info = await FileSystem.getInfoAsync(checkUri, { size: true }).catch(() => null);
+        console.warn('[Duva BG] wrote widget image bytes:', info?.size ?? 'unknown');
+      }
     }
     reloadWidget();
+    console.warn('[Duva BG] reloadWidget invoked');
+    if (!updateOk) return Result.Failed;
   } catch (e) {
     console.warn('[Duva BG] exception:', e?.message || e);
+    return Result.Failed;
   }
   return Result.NewData;
 }
@@ -180,12 +276,8 @@ async function updateWidgetFromPhotoUrl(photoUrl, caption = '') {
   try {
     const sharedPath = getAppGroupDirectory(APP_GROUP_ID);
     if (!sharedPath) return;
-    const destUri = 'file://' + sharedPath + '/current_widget_photo.jpg';
     if (!photoUrl || typeof photoUrl !== 'string' || photoUrl.trim() === '') {
-      try {
-        const info = await FileSystem.getInfoAsync(destUri, { size: false });
-        if (info.exists) await FileSystem.deleteAsync(destUri, { idempotent: true });
-      } catch (_) {}
+      await clearWidgetImageFiles(sharedPath);
       await writeCaptionToAppGroup('');
     } else {
       await downloadToAppGroup(photoUrl, caption);
@@ -203,7 +295,24 @@ async function updateWidgetFromPhotoUrl(photoUrl, caption = '') {
  * can update reliably even when the app is backgrounded.
  */
 export function registerBackgroundWidgetTask() {
-  Notifications.addNotificationReceivedListener((notification) => {
+  // Re-register background notification task on every boot.
+  if (Notifications?.isTaskRegisteredAsync && Notifications?.registerTaskAsync) {
+    Notifications.isTaskRegisteredAsync(BACKGROUND_NOTIFICATION_TASK)
+      .then((isRegistered) => {
+        if (!isRegistered) return Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK);
+      })
+      .catch(() => {});
+  }
+
+  // Remove any existing listener before adding a new one.
+  // Without this, each app launch stacks an extra listener and they race
+  // each other on the same notification (causing write conflicts after reopen).
+  if (_notificationSubscription) {
+    try { _notificationSubscription.remove(); } catch (_) {}
+    _notificationSubscription = null;
+  }
+
+  _notificationSubscription = Notifications.addNotificationReceivedListener((notification) => {
     const dataType = notification?.request?.content?.data?.type;
     const { photoUrl, caption } = getWidgetPayloadFromNotification(notification);
     if (dataType === 'new_photo' || dataType === 'widget_update') {

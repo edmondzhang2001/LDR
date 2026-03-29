@@ -118,6 +118,9 @@ router.delete('/:photoId', requireAuth, async (req, res) => {
             {
               to: pushToken,
               data: { photoUrl: nextUrl ?? '', type: 'widget_update' },
+              mutableContent: true,
+              _mutableContent: true,
+              contentAvailable: true,
               _contentAvailable: true,
             },
           ]);

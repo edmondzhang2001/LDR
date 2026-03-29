@@ -16,6 +16,7 @@
 		E79BED492F62529F00C63B83 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E79BED482F62529F00C63B83 /* WidgetKit.framework */; };
 		E79BED4B2F62529F00C63B83 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E79BED4A2F62529F00C63B83 /* SwiftUI.framework */; };
 		E79BED582F6252A000C63B83 /* DuvaImageWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E79BED472F62529F00C63B83 /* DuvaImageWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F0A100001122334455667788 /* DuvaNotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F0A102001122334455667788 /* DuvaNotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -27,6 +28,13 @@
 			remoteGlobalIDString = E79BED462F62529F00C63B83;
 			remoteInfo = DuvaImageWidgetExtension;
 		};
+		F0A101001122334455667788 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F0A109001122334455667788;
+			remoteInfo = DuvaNotificationServiceExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -37,6 +45,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				E79BED582F6252A000C63B83 /* DuvaImageWidgetExtension.appex in Embed Foundation Extensions */,
+				F0A100001122334455667788 /* DuvaNotificationServiceExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -60,6 +69,8 @@
 		E79BED5E2F62531500C63B83 /* DuvaImageWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DuvaImageWidgetExtension.entitlements; sourceTree = "<group>"; };
 		E79BEDAD2F625D8100C63B83 /* DuvaStatsWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DuvaStatsWidgetExtension.entitlements; sourceTree = "<group>"; };
 		E79BEDAE2F625D8700C63B83 /* DuvaCalendarWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DuvaCalendarWidgetExtension.entitlements; sourceTree = "<group>"; };
+		F0A102001122334455667788 /* DuvaNotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DuvaNotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F0A103001122334455667788 /* DuvaNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DuvaNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Duva/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Duva-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Duva-Bridging-Header.h"; path = "Duva/Duva-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -87,12 +98,20 @@
 			);
 			target = E79BED462F62529F00C63B83 /* DuvaImageWidgetExtension */;
 		};
+		F0A104001122334455667788 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = F0A109001122334455667788 /* DuvaNotificationServiceExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		E79BED4C2F62529F00C63B83 /* DuvaImageWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E79BED5C2F6252A000C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaImageWidget; sourceTree = "<group>"; };
 		E79BED842F625D2500C63B83 /* DuvaStatsWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E79BEDB02F625F2B00C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaStatsWidget; sourceTree = "<group>"; };
 		E79BED9C2F625D4300C63B83 /* DuvaCalendarWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E79BEDB22F625F3B00C63B83 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaCalendarWidget; sourceTree = "<group>"; };
+		F0A105001122334455667788 /* DuvaNotificationService */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (F0A104001122334455667788 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DuvaNotificationService; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +129,13 @@
 			files = (
 				E79BED4B2F62529F00C63B83 /* SwiftUI.framework in Frameworks */,
 				E79BED492F62529F00C63B83 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F0A107001122334455667788 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -154,11 +180,13 @@
 				E79BEDAE2F625D8700C63B83 /* DuvaCalendarWidgetExtension.entitlements */,
 				E79BEDAD2F625D8100C63B83 /* DuvaStatsWidgetExtension.entitlements */,
 				E79BED5E2F62531500C63B83 /* DuvaImageWidgetExtension.entitlements */,
+				F0A103001122334455667788 /* DuvaNotificationServiceExtension.entitlements */,
 				13B07FAE1A68108700A75B9A /* Duva */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				E79BED4C2F62529F00C63B83 /* DuvaImageWidget */,
 				E79BED842F625D2500C63B83 /* DuvaStatsWidget */,
 				E79BED9C2F625D4300C63B83 /* DuvaCalendarWidget */,
+				F0A105001122334455667788 /* DuvaNotificationService */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				C4A44C48C2D612529E9DCCC8 /* Pods */,
@@ -174,6 +202,7 @@
 			children = (
 				13B07F961A680F5B00A75B9A /* Duva.app */,
 				E79BED472F62529F00C63B83 /* DuvaImageWidgetExtension.appex */,
+				F0A102001122334455667788 /* DuvaNotificationServiceExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -233,6 +262,7 @@
 			);
 			dependencies = (
 				E79BED572F6252A000C63B83 /* PBXTargetDependency */,
+				F0A10A001122334455667788 /* PBXTargetDependency */,
 			);
 			name = Duva;
 			productName = Duva;
@@ -259,6 +289,26 @@
 			productReference = E79BED472F62529F00C63B83 /* DuvaImageWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		F0A109001122334455667788 /* DuvaNotificationServiceExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F0A10D001122334455667788 /* Build configuration list for PBXNativeTarget "DuvaNotificationServiceExtension" */;
+			buildPhases = (
+				F0A106001122334455667788 /* Sources */,
+				F0A107001122334455667788 /* Frameworks */,
+				F0A108001122334455667788 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F0A105001122334455667788 /* DuvaNotificationService */,
+			);
+			name = DuvaNotificationServiceExtension;
+			productName = DuvaNotificationServiceExtension;
+			productReference = F0A102001122334455667788 /* DuvaNotificationServiceExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -273,6 +323,9 @@
 						ProvisioningStyle = Automatic;
 					};
 					E79BED462F62529F00C63B83 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					F0A109001122334455667788 = {
 						CreatedOnToolsVersion = 26.3;
 					};
 				};
@@ -292,6 +345,7 @@
 			targets = (
 				13B07F861A680F5B00A75B9A /* Duva */,
 				E79BED462F62529F00C63B83 /* DuvaImageWidgetExtension */,
+				F0A109001122334455667788 /* DuvaNotificationServiceExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -309,6 +363,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E79BED452F62529F00C63B83 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F0A108001122334455667788 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -442,6 +503,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F0A106001122334455667788 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -449,6 +517,11 @@
 			isa = PBXTargetDependency;
 			target = E79BED462F62529F00C63B83 /* DuvaImageWidgetExtension */;
 			targetProxy = E79BED562F6252A000C63B83 /* PBXContainerItemProxy */;
+		};
+		F0A10A001122334455667788 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F0A109001122334455667788 /* DuvaNotificationServiceExtension */;
+			targetProxy = F0A101001122334455667788 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -746,6 +819,99 @@
 			};
 			name = Release;
 		};
+		F0A10B001122334455667788 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = DuvaNotificationServiceExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = QPR7URG7V4;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DuvaNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = DuvaNotificationService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = com.edmond.duva.DuvaNotificationServiceExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F0A10C001122334455667788 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = DuvaNotificationServiceExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = QPR7URG7V4;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DuvaNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = DuvaNotificationService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				MTL_FAST_MATH = YES;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = com.edmond.duva.DuvaNotificationServiceExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -772,6 +938,15 @@
 			buildConfigurations = (
 				E79BED5A2F6252A000C63B83 /* Debug */,
 				E79BED5B2F6252A000C63B83 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F0A10D001122334455667788 /* Build configuration list for PBXNativeTarget "DuvaNotificationServiceExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F0A10B001122334455667788 /* Debug */,
+				F0A10C001122334455667788 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
