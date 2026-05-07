@@ -79,7 +79,7 @@ export default function PaywallScreen() {
         <View style={styles.iconWrap}>
           <Ionicons name="heart" size={48} color={colors.blushDark} />
         </View>
-        <Text style={styles.title}>Unlock LDR</Text>
+        <Text style={styles.title}>Unlock Duva</Text>
         <Text style={styles.subtitle}>
           Subscribe to stay connected with your partner—shared calendar, live status, and puffy postcards delivered by dove.
         </Text>
